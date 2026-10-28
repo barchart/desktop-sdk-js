@@ -1,0 +1,32 @@
+# @barchart/desktop-sdk-js
+
+> Live market state from an Openfeed connection, for TypeScript and JavaScript. The SDK subscribes, applies snapshots and updates, and keeps quotes, order books and cumulative volume per instrument, calling you when they change. It connects to the Barchart Desktop API (ws://localhost:9000, with Barchart Desktop's credentials) or to an Openfeed gateway.
+
+- Install it with its peer dependencies: `@barchart/desktop-sdk-js @openfeed/sdk-js long`. ES modules only; Node 22 or later, or any bundler.
+- Create one `DesktopSdk` for the application's lifetime and `login({ url, username, password })`. `logout()` keeps subscriptions; `dispose()` ends everything.
+- `subscribeQuote`, `subscribeDepth` and `subscribeCumulativeVolume` take a symbol and a listener `{ onEvent, onError, onMessage }`, and return a `Subscription`. Call `close()` on it when done.
+- Callbacks never run inside a subscribe call: the first one, an `initial` event with the current state, comes after it returns.
+- Everything the SDK returns is frozen and may be kept and compared by identity. Prices are numbers scaled to real values; `null` means the feed hasn't sent a field.
+- `formatted` on a quote event, and `instrument.formatPrice(price)`, give prices in the instrument's own notation (such as 32nds).
+- Protocol enums (`Service`, `SubscriptionType`, `Result`) and message types come from `@openfeed/sdk-js`.
+
+## Docs
+
+- [README](https://raw.githubusercontent.com/barchart/desktop-sdk-js/main/README.md): the introduction, with installing, connecting, subscribing, reading state and formatting.
+- [Reference](https://raw.githubusercontent.com/barchart/desktop-sdk-js/main/docs/reference.md): every public method and type, and the delivery guarantees.
+
+## Examples
+
+- [Quotes](https://raw.githubusercontent.com/barchart/desktop-sdk-js/main/examples/quotes.ts): a quote's last price and best bid and offer, as they change.
+- [Order book](https://raw.githubusercontent.com/barchart/desktop-sdk-js/main/examples/order-book.ts): the order book, rendered on each change.
+- [Cumulative volume](https://raw.githubusercontent.com/barchart/desktop-sdk-js/main/examples/cumulative-volume.ts): a volume-at-price table kept from the changed levels.
+- [Coalescing](https://raw.githubusercontent.com/barchart/desktop-sdk-js/main/examples/coalescing.ts): at most one event per subscription per interval, on a busy feed.
+- [Connection](https://raw.githubusercontent.com/barchart/desktop-sdk-js/main/examples/connection.ts): logging in and out, rejected credentials, heartbeats, disposing.
+- [Raw access](https://raw.githubusercontent.com/barchart/desktop-sdk-js/main/examples/raw-access.ts): raw subscriptions, one-off snapshots and instrument lookups.
+
+## Optional
+
+- [Design](https://raw.githubusercontent.com/barchart/desktop-sdk-js/main/docs/design.md): how the SDK works inside, for contributors and ports to other languages.
+- [Openfeed](https://openfeed.com/): the protocol, its services and messages.
+- [Openfeed client](https://github.com/openfeed-org/sdk-js): `@openfeed/sdk-js`, which the SDK runs on.
+- [Changelog](https://raw.githubusercontent.com/barchart/desktop-sdk-js/main/CHANGELOG.md): what changed in each release.

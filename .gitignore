@@ -1,0 +1,7 @@
+node_modules
+dist
+coverage
+*.tgz
+
+# Yarn's local state; Yarn itself comes from corepack (packageManager in package.json)
+.yarn/

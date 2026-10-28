@@ -1,0 +1,84 @@
+{
+    "name": "@barchart/desktop-sdk-js",
+    "version": "0.1.0",
+    "description": "Live quotes, order books and cumulative volume from Openfeed, kept up to date for you.",
+    "license": "SEE LICENSE IN LICENSE",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/barchart/desktop-sdk-js.git"
+    },
+    "homepage": "https://github.com/barchart/desktop-sdk-js#readme",
+    "bugs": "https://github.com/barchart/desktop-sdk-js/issues",
+    "keywords": [
+        "openfeed",
+        "market-data",
+        "trading",
+        "barchart"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist",
+        "docs",
+        "examples",
+        "llms.txt",
+        "README.md",
+        "LICENSE"
+    ],
+    "publishConfig": {
+        "access": "public",
+        "provenance": true
+    },
+    "engines": {
+        "node": ">=22"
+    },
+    "scripts": {
+        "build": "yarn hooks:install && rm -rf dist && node ./node_modules/typescript-7/bin/tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json --resolve-full-paths",
+        "build:watch": "yarn hooks:install && rm -rf dist && (node ./node_modules/typescript-7/bin/tsc -p tsconfig.build.json --sourceMap --declarationMap --watch --preserveWatchOutput & tsc-alias -p tsconfig.build.json --resolve-full-paths --watch)",
+        "hooks:install": "husky",
+        "link:dev": "corepack yarn@1.22.22 link",
+        "unlink:dev": "corepack yarn@1.22.22 unlink",
+        "typecheck": "node ./node_modules/typescript-7/bin/tsc -p tsconfig.json",
+        "lint": "eslint .",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "check:package": "publint && attw --pack . --profile esm-only",
+        "check:esm": "node --input-type=module -e \"const sdk = await import('@barchart/desktop-sdk-js'); if (typeof sdk.DesktopSdk !== 'function') process.exit(1)\"",
+        "check": "yarn typecheck && yarn lint && yarn format:check && yarn test && yarn build && yarn check:package && yarn check:esm"
+    },
+    "peerDependencies": {
+        "@openfeed/sdk-js": "^1.7.2",
+        "long": "^5.3.2"
+    },
+    "devDependencies": {
+        "@arethetypeswrong/cli": "0.18.5",
+        "@commitlint/cli": "21.2.4",
+        "@commitlint/config-conventional": "21.2.4",
+        "@eslint/js": "10.0.1",
+        "@openfeed/sdk-js": "1.7.2",
+        "eslint": "10.13.0",
+        "eslint-config-prettier": "10.1.8",
+        "husky": "9.1.7",
+        "lint-staged": "17.6.0",
+        "long": "5.3.2",
+        "prettier": "3.9.10",
+        "publint": "0.3.25",
+        "tsc-alias": "1.9.9",
+        "typescript": "6.0.3",
+        "typescript-7": "npm:typescript@7.0.2",
+        "typescript-eslint": "8.72.1",
+        "vite": "8.3.5",
+        "vitest": "5.0.5"
+    },
+    "packageManager": "yarn@4.18.1"
+}

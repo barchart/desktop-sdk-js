@@ -1,0 +1,12 @@
+{
+    // `yarn build`: src/ into dist/, one .js and .d.ts per source file, as ES modules.
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "noEmit": false,
+        "rootDir": "src",
+        "outDir": "dist",
+        // no source or declaration maps: the package doesn't ship src/ for them to point at
+        "declaration": true
+    },
+    "include": ["src"]
+}

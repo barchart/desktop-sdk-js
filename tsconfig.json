@@ -1,0 +1,25 @@
+{
+    // Typechecking src/, test/, examples/ and the configs (`yarn typecheck`); tsconfig.build.json emits src/ into dist/.
+    "compilerOptions": {
+        "target": "ES2022",
+        // DOM for `console` and `setTimeout`, which every runtime has; ESLint bans `window` and `document` in src/
+        "lib": ["ES2022", "DOM"],
+        // Bundler resolution: relative imports have no extension (the build adds .js with tsc-alias, as Node's ESM
+        // loader needs; `yarn check:esm` proves it), and @openfeed/sdk-js's declarations don't resolve under NodeNext.
+        "module": "Preserve",
+        "moduleResolution": "Bundler",
+        "verbatimModuleSyntax": true,
+        "isolatedModules": true,
+        "strict": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noImplicitReturns": true,
+        "noFallthroughCasesInSwitch": true,
+        "skipLibCheck": true,
+        "noEmit": true,
+        "types": [],
+        // examples/ import the package by its name, as users do; this points it at src/ so they typecheck without a build
+        "paths": { "@barchart/desktop-sdk-js": ["./src/index.ts"] }
+    },
+    "include": ["src", "test", "examples", "*.config.ts"]
+}

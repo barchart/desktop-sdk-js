@@ -1,0 +1,5 @@
+dist
+*.md
+LICENSE
+# release-please rewrites it in its own format in every release PR
+.release-please-manifest.json
