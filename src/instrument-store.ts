@@ -217,7 +217,7 @@ export class InstrumentStore {
         market.quote = Object.freeze(applySnapshot(snapshot, instrument));
 
         // no book unless the snapshot has price levels; an existing book stays
-        const book = bookFromSnapshot(snapshot.priceLevels, instrument);
+        const book = bookFromSnapshot(snapshot.priceLevels, instrument, this.log);
         if (book) {
             market.book = freezeBook(book);
         }

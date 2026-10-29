@@ -94,6 +94,45 @@ describe("depth updates", () => {
         expect(book.asks[0].price).toBe(100.5);
     });
 
+    it("skips an add, a modify or a delete outside the book, with an error, and applies the message's other entries", () => {
+        const { store, errors } = setup();
+        const before = defined(store.getBookById("42"));
+        depth(store, add(BookSide.BID, 4, 9950, 2), modify(BookSide.BID, 4, 9950, 2), remove(BookSide.OFFER, 4), modify(BookSide.OFFER, 1, 10025, 9));
+        const book = defined(store.getBookById("42"));
+        expect(book.bids).toEqual(before.bids);
+        expect(sizes(book.asks)).toEqual([
+            [100.25, 9],
+            [0, 0],
+            [0, 0],
+        ]);
+        expect(errors).toHaveLength(3);
+    });
+
+    it("skips a snapshot's levels outside the book, with an error", () => {
+        const { logger, errors } = recordingLogger();
+        const store = new InstrumentStore(logger);
+        store.apply(message({ instrumentDefinition: definition({ bookDepth: 2 }) }));
+        store.apply(
+            message({
+                marketSnapshot: {
+                    marketId: mid,
+                    tradeDate: 0,
+                    priceLevels: [level(BookSide.BID, 1, 10000, 5), level(BookSide.BID, 3, 9950, 1), level(BookSide.OFFER, 0, 10025, 3)],
+                },
+            })
+        );
+        const book = defined(store.getBookById("42"));
+        expect(sizes(book.bids)).toEqual([
+            [100, 5],
+            [0, 0],
+        ]);
+        expect(sizes(book.asks)).toEqual([
+            [0, 0],
+            [0, 0],
+        ]);
+        expect(errors).toHaveLength(2);
+    });
+
     it("ignores depth without a book, with a warning, until a snapshot brings one", () => {
         const { logger, warnings } = recordingLogger();
         const store = new InstrumentStore(logger);
