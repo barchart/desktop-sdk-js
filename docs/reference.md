@@ -163,7 +163,7 @@ Fields are formatted when read. `JSON.stringify(formatted)` gives every view's v
 | `definition` | The whole `InstrumentDefinition`. |
 | `price(raw)`, `quantity(raw)` | A protocol price or quantity, scaled; for values read from raw messages. |
 | `formatPrice(price, notation?)` | A price as a string; `notation` is `"native"` (the default) or `"decimal"`. In 32nds, `112.5` is `"112-16"`, or `"112.50000"` in decimal. `""` for `null`. |
-| `parsePrice(text)` | A price string back to a number. |
+| `parsePrice(text)` | A price string back to a number. A fraction with a subdenominator ends in its sub-fraction's first decimal digit, as `formatPrice` writes it: in quarter 32nds, `"104-002"` is 104 and ¼ of a 32nd, so formatted prices parse back exactly. A digit `formatPrice` never writes reads as tenths. |
 
 ### Others
 

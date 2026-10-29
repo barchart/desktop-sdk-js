@@ -89,6 +89,20 @@ export const formatPriceDecimal = (price: number | null | undefined, format: Pri
     return decimals === undefined ? price.toString() : formatDecimal(price.toFixed(decimals));
 };
 
+/**
+ * With a subdenominator, formatPrice writes a fraction's last digit as the first decimal digit of its sub-fraction
+ * (quarters of a 32nd: ¼ → 2, ½ → 5, ¾ → 7). The sub-fraction a digit stands for, or undefined for a digit it never
+ * writes.
+ */
+const getSubFraction = (digit: number, subdenominator: number): number | undefined => {
+    for (let k = 0; k < subdenominator; k += 1) {
+        if (Math.floor((k / subdenominator) * 10) === digit) {
+            return k / subdenominator;
+        }
+    }
+    return undefined;
+};
+
 export const priceToNumber = (price: string, format: PriceFormat) => {
     if (!price) {
         return undefined;
@@ -113,7 +127,11 @@ export const priceToNumber = (price: string, format: PriceFormat) => {
             return parseFloat(cleanPrice);
         }
 
-        const formulaResult = (parsedIntegerPart * denominator + parsedDecimalPart * (1 / 10 ** subDenominatorShift)) / denominator;
+        // the last digit as formatPrice writes it (2 is ¼ in quarter 32nds); a digit it never writes reads as tenths
+        const subFraction = subDenominatorShift > 0 && parsedDecimalPart >= 0 ? getSubFraction(parsedDecimalPart % 10, subdenominator) : undefined;
+        const units =
+            subFraction === undefined ? parsedDecimalPart * (1 / 10 ** subDenominatorShift) : Math.floor(parsedDecimalPart / 10) + subFraction;
+        const formulaResult = (parsedIntegerPart * denominator + units) / denominator;
 
         return sign * formulaResult;
     }

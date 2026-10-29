@@ -47,6 +47,20 @@ describe("fractions", () => {
         expect(zt.parsePrice("104-005")).toBe(104.015625);
     });
 
+    it("parses the last digit of a fraction with a subdenominator as its sub-fraction, so prices round-trip", () => {
+        expect(zt.parsePrice("104-002")).toBe(104.0078125);
+        expect(zt.parsePrice("104-127")).toBe(104 + 12.75 / 32);
+        for (let quarters = 0; quarters < 32 * 4 * 3; quarters += 1) {
+            const price = 103 + quarters / 128;
+            expect(zt.parsePrice(zt.formatPrice(price))).toBe(price);
+        }
+    });
+
+    it("reads a last digit the formatter never writes as tenths", () => {
+        expect(zt.parsePrice("104-003")).toBe((104 * 32 + 3 * 0.1) / 32);
+        expect(zt.parsePrice("104-129")).toBe((104 * 32 + 129 * 0.1) / 32);
+    });
+
     it("parses text without a fraction as a decimal, and nothing as undefined", () => {
         expect(zn.parsePrice("112.5")).toBe(112.5);
         expect(zn.parsePrice("")).toBeUndefined();
