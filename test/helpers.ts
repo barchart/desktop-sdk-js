@@ -38,11 +38,29 @@ export const decimalFormat = (denominator: number) => ({ isFractional: false, de
 export const fractionFormat = (denominator: number, subDenominator = 0) =>
     ({ isFractional: true, denominator, subDenominator }) as InstrumentDefinition_PriceFormat;
 
+/** A logger that keeps its warnings and errors, for tests that check them. */
+export const recordingLogger = () => {
+    const warnings: unknown[][] = [];
+    const errors: unknown[][] = [];
+    const logger: SdkLogger = {
+        log: ignore,
+        warn: (...data: unknown[]) => {
+            warnings.push(data);
+        },
+        error: (...data: unknown[]) => {
+            errors.push(data);
+        },
+    };
+    return { logger, warnings, errors };
+};
+
 export interface DefinitionFields {
     marketId?: number;
     symbol?: string;
-    priceFormat?: InstrumentDefinition_PriceFormat;
+    /** null: a definition without a price format. */
+    priceFormat?: InstrumentDefinition_PriceFormat | null;
     priceDenominator?: number;
+    quantityDenominator?: number;
     bookDepth?: number;
     instrumentType?: InstrumentDefinition_InstrumentType;
     optionType?: InstrumentDefinition_OptionType;
@@ -58,12 +76,12 @@ export const definition = (fields: DefinitionFields = {}): InstrumentDefinition 
         optionType: fields.optionType ?? InstrumentDefinition_OptionType.UNKNOWN_OPTION_TYPE,
         underlying: fields.underlying ?? "",
         priceDenominator: fields.priceDenominator ?? 100,
-        quantityDenominator: 1,
+        quantityDenominator: fields.quantityDenominator ?? 1,
         priceScalingExponent: 0,
         bookDepth: fields.bookDepth ?? 5,
         description: "",
         timeZoneName: "America/Chicago",
-        priceFormat: fields.priceFormat ?? decimalFormat(100),
+        priceFormat: fields.priceFormat === null ? undefined : (fields.priceFormat ?? decimalFormat(100)),
     }) as unknown as InstrumentDefinition;
 
 export const level = (side: BookSide, n: number, price: number, quantity: number) =>
