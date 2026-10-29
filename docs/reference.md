@@ -169,7 +169,7 @@ Fields are formatted when read. `JSON.stringify(formatted)` gives every view's v
 
 | Type | |
 |---|---|
-| `Book` | `{ bids: PriceLevel[], asks: PriceLevel[] }`, each side `bookDepth` long. |
+| `Book` | `{ bids: PriceLevel[], asks: PriceLevel[] }`, each side `bookDepth` long. A level outside it, in a snapshot or an update, is skipped and logged as an error. |
 | `PriceLevel` | `{ price, size, orderCount? }`; an empty slot is `{ price: 0, size: 0 }`. |
 | `PriceVolume` | `{ price, volume }` |
 | `TradeDate` | A date without a time: `year`, `month` (1–12), `day`, `equals()`, `toString()` as `"YYYY-MM-DD"`. |

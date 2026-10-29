@@ -23,8 +23,8 @@ const toLevel = (level: { price: Long; quantity: Long; orderCount: number }, i: 
     orderCount: level.orderCount === 0 ? undefined : level.orderCount,
 });
 
-/** No book unless the snapshot has price levels. */
-export const bookFromSnapshot = (levels: AddPriceLevel[], i: Instrument): Book | null => {
+/** No book unless the snapshot has price levels. Levels outside the book's depth are skipped, with an error. */
+export const bookFromSnapshot = (levels: AddPriceLevel[], i: Instrument, log: SdkLogger): Book | null => {
     if (!levels.length) {
         return null;
     }
@@ -32,42 +32,41 @@ export const bookFromSnapshot = (levels: AddPriceLevel[], i: Instrument): Book |
     const bids = Array.from({ length: i.bookDepth }, emptyLevel);
     const asks = Array.from({ length: i.bookDepth }, emptyLevel);
 
+    const sides = new Map([
+        [BookSide.BID, bids],
+        [BookSide.OFFER, asks],
+    ]);
     for (const level of levels) {
-        if (level.side === BookSide.BID) {
-            bids[level.level - 1] = toLevel(level, i);
-        } else if (level.side === BookSide.OFFER) {
-            asks[level.level - 1] = toLevel(level, i);
+        const side = sides.get(level.side);
+        if (side && (level.level < 1 || level.level > side.length)) {
+            log.error("OF SDK > Snapshot book level out of range, skipped", i.symbol, level.level);
+        } else if (side) {
+            side[level.level - 1] = toLevel(level, i);
         }
     }
 
     return { bids, asks };
 };
 
-/** One entry applied to its side's levels; undefined, with a warning, when its index is out of range. */
+/**
+ * One entry applied to its side's levels; undefined, with an error, when its level is outside the side: every
+ * operation keeps the side `bookDepth` long.
+ */
 const applyEntry = (elements: PriceLevel[], entry: DepthPriceLevel_Entry, index: number, i: Instrument, symbol: string, log: SdkLogger) => {
+    if (index < 0 || index >= elements.length) {
+        log.error("OF SDK > Book level out of range, skipped", symbol, index + 1);
+        return undefined;
+    }
     if (entry.addPriceLevel) {
-        // an add may go one level past the end, which lengthens that side
-        if (index < 0 || index > elements.length + 1) {
-            log.warn("OF > Strange element index received for add", symbol, index);
-            return undefined;
-        }
         return [...elements.slice(0, index), toLevel(entry.addPriceLevel, i), ...elements.slice(index, -1)];
     }
     if (entry.modifyPriceLevel) {
-        if (index < 0 || index > elements.length) {
-            log.warn("OF > Strange element index received for modify", symbol, index);
-            return undefined;
-        }
         return [...elements.slice(0, index), toLevel(entry.modifyPriceLevel, i), ...elements.slice(index + 1)];
-    }
-    if (index < 0 || index > elements.length) {
-        log.warn("OF > Strange element index received for delete", symbol, index);
-        return undefined;
     }
     return [...elements.slice(0, index), ...elements.slice(index + 1), emptyLevel()];
 };
 
-/** Add and delete keep each side's length; out-of-range levels are skipped with a warning. */
+/** Every entry keeps each side's length; levels outside the book are skipped with an error. */
 export const applyDepth = (book: Book, depth: DepthPriceLevel, i: Instrument, symbol: string, log: SdkLogger): Book => {
     let { bids, asks } = book;
 
