@@ -3,6 +3,11 @@
 import { DesktopSdk } from "@barchart/desktop-sdk-js";
 import { SubscriptionType } from "@openfeed/sdk-js";
 
+const delay = (ms: number) =>
+    new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
+
 const sdk = new DesktopSdk();
 sdk.login({ url: "ws://localhost:9000", username: "your-username", password: "your-password" });
 
@@ -26,4 +31,7 @@ console.log(instrumentDefinition?.description, marketSnapshot.marketId.toString(
 const definitions = await sdk.raw.lookupInstruments({ symbol: "ZC*1" });
 console.log(definitions.map((definition) => definition.symbol));
 
+// Trades for a minute, then everything closes.
+await delay(60_000);
 trades.close();
+sdk.dispose();
