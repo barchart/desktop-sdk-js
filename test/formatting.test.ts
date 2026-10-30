@@ -3,7 +3,7 @@ import type { MarketSnapshot } from "@openfeed/sdk-js";
 import { formatQuote } from "../src/formatted-quote";
 import { createInstrument, type PriceNotation } from "../src/instrument";
 import { applySnapshot } from "../src/reducers/quote";
-import { decimalFormat, definition, fractionFormat, quiet } from "./helpers";
+import { decimalFormat, definition, fractionFormat, quiet, recordingLogger } from "./helpers";
 
 const es = createInstrument(definition({ marketId: 1, symbol: "ESZ26", priceFormat: decimalFormat(100) }), quiet);
 const zn = createInstrument(definition({ marketId: 2, symbol: "ZNZ26", priceFormat: fractionFormat(32), priceDenominator: 1000000 }), quiet);
@@ -25,6 +25,70 @@ describe("instrument.formatPrice", () => {
     it("formats no price as an empty string, and any other notation as native", () => {
         expect(zn.formatPrice(null, "decimal")).toBe("");
         expect(zn.formatPrice(112.5, 0 as unknown as PriceNotation)).toBe("112-16");
+    });
+});
+
+describe("fractions", () => {
+    it("formats a negative price with its sign before the whole part", () => {
+        expect(zn.formatPrice(-112.5)).toBe("-112-16");
+        expect(zn.formatPrice(-0.03125)).toBe("-0-01");
+    });
+
+    it("formats quarters of a 32nd as their first decimal digit, in three digits", () => {
+        expect(zt.formatPrice(104.0078125)).toBe("104-002");
+        expect(zt.formatPrice(104.015625)).toBe("104-005");
+        expect(zt.formatPrice(104.0234375)).toBe("104-007");
+    });
+
+    it("parses what it formats, signs included", () => {
+        expect(zn.parsePrice("112-16")).toBe(112.5);
+        expect(zn.parsePrice("-112-16")).toBe(-112.5);
+        expect(zn.parsePrice("-0-01")).toBe(-0.03125);
+        expect(zt.parsePrice("104-005")).toBe(104.015625);
+    });
+
+    it("parses the last digit of a fraction with a subdenominator as its sub-fraction, so prices round-trip", () => {
+        expect(zt.parsePrice("104-002")).toBe(104.0078125);
+        expect(zt.parsePrice("104-127")).toBe(104 + 12.75 / 32);
+        for (let quarters = 0; quarters < 32 * 4 * 3; quarters += 1) {
+            const price = 103 + quarters / 128;
+            expect(zt.parsePrice(zt.formatPrice(price))).toBe(price);
+        }
+    });
+
+    it("reads a last digit the formatter never writes as tenths", () => {
+        expect(zt.parsePrice("104-003")).toBe((104 * 32 + 3 * 0.1) / 32);
+        expect(zt.parsePrice("104-129")).toBe((104 * 32 + 129 * 0.1) / 32);
+    });
+
+    it("parses text without a fraction as a decimal, and nothing as undefined", () => {
+        expect(zn.parsePrice("112.5")).toBe(112.5);
+        expect(zn.parsePrice("")).toBeUndefined();
+    });
+});
+
+describe("decimals", () => {
+    it("formats with thousands separators and the format's decimals, and parses them back", () => {
+        expect(es.formatPrice(1234567.5)).toBe("1,234,567.50");
+        expect(es.formatPrice(-1234.5)).toBe("-1,234.50");
+        expect(es.parsePrice("1,234,567.50")).toBe(1234567.5);
+    });
+});
+
+describe("a definition without a price format", () => {
+    const { logger, warnings } = recordingLogger();
+    const plain = createInstrument(definition({ priceFormat: null, priceDenominator: 1 }), logger);
+
+    it("warns, and scales prices by the denominator alone", () => {
+        expect(warnings).toHaveLength(1);
+        expect(plain.priceFormat).toEqual({ priceScaling: 1 });
+    });
+
+    it("formats prices as JavaScript prints numbers, in either notation", () => {
+        expect(plain.formatPrice(100)).toBe("100");
+        expect(plain.formatPrice(100.5)).toBe("100.5");
+        expect(plain.formatPrice(1234567)).toBe("1234567");
+        expect(plain.formatPrice(100, "decimal")).toBe("100");
     });
 });
 

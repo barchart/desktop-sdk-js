@@ -2,6 +2,11 @@
 
 import { DesktopSdk } from "@barchart/desktop-sdk-js";
 
+const delay = (ms: number) =>
+    new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
+
 const sdk = new DesktopSdk({ logger: console });
 sdk.onConnectionState((state) => {
     console.log("connection:", state);
@@ -21,9 +26,9 @@ const subscription = sdk.subscribeQuote("ESZ26", {
     },
 });
 
-// The state is also there to read between events: undefined until the SDK has it.
-await sdk.whenConnected();
-console.log(sdk.getQuote("ESZ26")?.session.last);
+// Events for a minute. The state is also there to read between events: undefined until the SDK has it.
+await delay(60_000);
+console.log("last after a minute:", sdk.getQuote("ESZ26")?.session.last);
 
 // No callback arrives after close() returns.
 subscription.close();

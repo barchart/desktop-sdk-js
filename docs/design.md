@@ -67,10 +67,10 @@ One state per `marketId`, since a `marketId` is one listed instrument on its exc
 - **`EXCHANGE_MOVE`** moves a market's state and its index entry to the new `marketId`.
 - **Freezing:** records, books (with their arrays and levels) and level lists are frozen as they're stored.
 
-**Reducers** are pure functions of `(state, message, instrument)` with no I/O, clock, logger or date library (the book's warnings go to a logger passed in):
+**Reducers** are pure functions of `(state, message, instrument)` with no I/O, clock, logger or date library (the book's errors go to a logger passed in):
 
 - **Quote:** `applySnapshot(snapshot, instrument)` returns a whole record; `applyUpdate(record, update, instrument, tradesLastSize)` returns a new record, or the same one if nothing changed. One `readSession` reads either session from a snapshot. A `trades` update writes each session only if it touched it, so an untouched session stays the same object.
-- **Book:** returns new objects instead of changing the old ones.
+- **Book:** returns new objects instead of changing the old ones. Each side stays `bookDepth` long: a level outside it, in a snapshot or a depth update, is skipped and logged as an error.
 - **Cumulative volume:** seeded from the snapshot's volume at price, then built from trades. The reducer returns **ordered steps**, `{ price, delta }`, not levels, since `lastSize` and the totals depend on their order. The store applies the steps in order and hands out the resulting levels.
 
 ## 5. The subscription loop
