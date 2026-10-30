@@ -1,6 +1,6 @@
 # Examples
 
-Short programs, one task each. They connect to the Barchart Desktop API on `ws://localhost:9000`; put in your Barchart Desktop credentials to run them.
+Short programs, one task each. They connect to the Barchart Desktop API on `ws://localhost:9000`; put in your Barchart Desktop credentials to run them. They run until you stop them, except those that show closing and disposing, which do that after a minute.
 
 - [quotes.ts](quotes.ts): a quote's last price and best bid and offer, as they change.
 - [order-book.ts](order-book.ts): the order book, rendered on each change.
