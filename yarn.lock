@@ -71,7 +71,7 @@ __metadata:
     "@commitlint/cli": "npm:21.2.4"
     "@commitlint/config-conventional": "npm:21.2.4"
     "@eslint/js": "npm:10.0.1"
-    "@openfeed/sdk-js": "npm:1.7.2"
+    "@openfeed/sdk-js": "npm:1.8.0"
     eslint: "npm:10.13.0"
     eslint-config-prettier: "npm:10.1.8"
     husky: "npm:9.1.7"
@@ -86,7 +86,7 @@ __metadata:
     vite: "npm:8.3.5"
     vitest: "npm:5.0.5"
   peerDependencies:
-    "@openfeed/sdk-js": ^1.7.2
+    "@openfeed/sdk-js": ^1.8.0
     long: ^5.3.2
   languageName: unknown
   linkType: soft
@@ -95,6 +95,13 @@ __metadata:
   version: 1.1.2
   resolution: "@braidai/lang@npm:1.1.2"
   checksum: 10c0/24bc85bf85dfe027102b19f418a591202b00cc8be12525ceff8adb65d5ebdda0dc1a0463c1e2cb6de1d85cd409012aa85850d9377bae61160162afbea278ab26
+  languageName: node
+  linkType: hard
+
+"@bufbuild/protobuf@npm:^2.14.1":
+  version: 2.16.0
+  resolution: "@bufbuild/protobuf@npm:2.16.0"
+  checksum: 10c0/ba3bc677e801a71d9cf0bdc138174144e493706efec3a47865eb07e956423315a80ff12301f6835d352202ae4d6599f2946a7c67338cf0079ed2a06af1a18097
   languageName: node
   linkType: hard
 
@@ -543,14 +550,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@openfeed/sdk-js@npm:1.7.2":
-  version: 1.7.2
-  resolution: "@openfeed/sdk-js@npm:1.7.2"
+"@openfeed/sdk-js@npm:1.8.0":
+  version: 1.8.0
+  resolution: "@openfeed/sdk-js@npm:1.8.0"
   dependencies:
+    "@bufbuild/protobuf": "npm:^2.14.1"
     isomorphic-ws: "npm:^5.0.0"
     long: "npm:^5.3.2"
-    ws: "npm:^8.19.0"
-  checksum: 10c0/f24d0d0ebdfea1175766bcfb26f07ce06c4174c769842ac5a2651e8baa26e16729555f1e057bd4ef95782dc38424c6ac181116365f00adda7eb9b2c082e0b730
+    ws: "npm:^8.22.1"
+  checksum: 10c0/cec63afac65d67cc1fcde54fa8bbcb7362d3f81d5dfc990ee1dd245d4807c9c8437ad6b426e23d1e036f02270686ab44863b14a9f86d6088df0fe24f36af9706
   languageName: node
   linkType: hard
 
@@ -3400,9 +3408,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ws@npm:^8.19.0":
-  version: 8.22.0
-  resolution: "ws@npm:8.22.0"
+"ws@npm:^8.22.1":
+  version: 8.22.1
+  resolution: "ws@npm:8.22.1"
   peerDependencies:
     bufferutil: ^4.0.1
     utf-8-validate: ">=5.0.2"
@@ -3411,7 +3419,7 @@ __metadata:
       optional: true
     utf-8-validate:
       optional: true
-  checksum: 10c0/7304d14ef38898dd366a528a85e2da389c4eebf30f4ce8a007bd2dce6025f9b619cefe44fe2354f0bad0ec541b1c9a4da06a3f3e046ab56f01fd52d5784ecfb2
+  checksum: 10c0/858ccc31e56a7549c25d0bfd522b65c64f7bffdc5460eeb4c29517d34728d34de102d2ebf8296160c8b4594fd45ead6a324acd9a1ea0b0b8742bbed4d52d9a51
   languageName: node
   linkType: hard
 

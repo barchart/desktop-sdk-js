@@ -157,7 +157,7 @@ describe("raw access and lifetime", () => {
             ].sort()
         );
         expect(sdk.diagnostics.getConnectionToken()).toBeUndefined();
-        expect(sdk.raw.send({} as never)).toBeUndefined();
+        expect(sdk.raw.send({})).toBeUndefined();
         expect(sdk.diagnostics.getLastMessages("ZCZ26")).toBeUndefined();
     });
 

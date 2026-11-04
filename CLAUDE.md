@@ -37,22 +37,22 @@ yarn check:esm       # loads the built package in Node, as a user would
 yarn commitlint --from main   # checks the branch's commit messages, as CI does on pull requests
 ```
 
-Yarn 4, with `nodeLinker: node-modules` (`.yarnrc.yml`). It holds back packages published less than a day ago (`npmMinimalAgeGate`), so pin a version that old when upgrading.
+Yarn 4, with `nodeLinker: node-modules` (`.yarnrc.yml`). It holds back packages published less than a day ago (`npmMinimalAgeGate`), so pin a version that old when upgrading, except for `@openfeed/sdk-js` (see "Supply chain").
 
 ## Supply chain
 
 - **No install scripts:** `enableScripts: false` in `.yarnrc.yml`, so no dependency's `preinstall`/`install`/`postinstall` runs, and this package has none either (husky's hooks are installed by `yarn build` and `yarn build:watch`, through `yarn hooks:install`, not by `postinstall`). A dependency that truly needs its build script gets `dependenciesMeta: { "<name>": { "built": true } }` in `package.json`, as a reviewed exception.
 - **Pinned versions:** dev dependencies are exact versions, and `yarn install --immutable` in CI installs exactly `yarn.lock`.
+- **Age gate exception:** `@openfeed/sdk-js` skips the one-day wait (`npmPreapprovedPackages` in `.yarnrc.yml`). This is a deliberate decision and stays: it's our own package, released by us, so the SDK can pick up a new version the same day. Every other package, including the client's own dependencies, still waits.
 - **Workflows:** actions are pinned to commit SHAs, with the version in a comment; update the SHA and the comment together. Jobs get the fewest permissions they need, and checkouts don't keep the token (`persist-credentials: false`).
 - **Code owners** (`.github/CODEOWNERS`): changes to `.github/` (the workflows, and the owners file itself) and to `.yarnrc.yml` need a review from one of the owners.
 - **Build and publish are separate jobs** (`release.yml`): `build` installs, checks and packs `package.tgz` with read-only access and no secrets; `publish` downloads that tarball and runs only `npm stage publish package.tgz --ignore-scripts`, with no checkout and no install, so dependency code never runs next to the npm credentials.
 
 ## Toolchain
 
-- **ES modules only, built by `tsc`.** No bundler: each source file becomes one `.js` and `.d.ts` in `dist/`. CommonJS users `require()` it on Node 22.12+, and bundlers take ESM. **Relative imports have no extension** (`from "./types"`); after `tsc`, `tsc-alias --resolve-full-paths` adds `.js` to them in `dist/` (JavaScript and declarations), as Node's ESM loader needs. `yarn check:esm` fails if one is missed. Type resolution is `Bundler`, because `@openfeed/sdk-js`'s declarations don't resolve under `NodeNext`.
+- **ES modules only, built by `tsc`.** No bundler: each source file becomes one `.js` and `.d.ts` in `dist/`. CommonJS users `require()` it on Node 22.12+, and bundlers take ESM. **Relative imports have no extension** (`from "./types"`); after `tsc`, `tsc-alias --resolve-full-paths` adds `.js` to them in `dist/` (JavaScript and declarations), as Node's ESM loader needs. `yarn check:esm` fails if one is missed. Type resolution is `Bundler`, which allows those imports without an extension.
 - **Two TypeScripts.** TypeScript 7 typechecks and builds (`yarn typecheck`, `yarn build`, through the `typescript-7` alias). TypeScript 6 is installed as `typescript` only because typescript-eslint doesn't support 7 yet. Drop 6 once typescript-eslint supports 7.
 - **Peer dependencies:** `@openfeed/sdk-js` and `long`. The application and the SDK share one client and one copy of the protocol types. Both are also dev dependencies, for the tests.
-- **`@openfeed/sdk-js`'s declarations** import their message types through a path alias (`@gen/...`) and without file extensions, which don't resolve in an installed package, so its listeners' parameters are `any` (and `NodeNext` resolution can't read them at all). `desktop-sdk.ts` types them explicitly; keep it that way until the client's published types are fixed.
 - **Portable core:** `src/` must run anywhere JavaScript does. ESLint bans `window` and `document` there; the DOM lib stays in tsconfig only for `console` and `setTimeout`.
 - **Prettier:** 150 columns, 4 spaces, ES5 trailing commas (`.prettierrc`).
 - **ESLint** (`eslint.config.js`): every core rule (`js.configs.all`) and typescript-eslint `strictTypeChecked`, minus the rules the config turns off. `curly` stays on after `eslint-config-prettier`. Three rules are off for this code's design, each with its reason in the config: `no-void`, `no-await-in-loop`, and `no-console` in `examples/`. In practice: functions are `const` arrow functions declared before their use, one class per file, no `!` assertions, no `continue`, and a function's complexity at most 20. Prettier runs on its own (`yarn format`, format on save), not through ESLint. The getter tables in `formatted-session.ts` and `formatted-best-bid-offer.ts` are `// prettier-ignore` on purpose.

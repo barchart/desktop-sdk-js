@@ -78,7 +78,7 @@ The current state for a symbol, as the last event delivered it; `undefined` unti
 | `requestSnapshot(symbol, service?)` | One snapshot: resolves with `{ instrumentDefinition, marketSnapshot }`, then closes. `service` defaults to `REAL_TIME_SNAPSHOT`. Rejects if the subscription fails or the SDK is disposed. |
 | `onMessage(listener)` | Every incoming message, with its metadata (the client's symbol names and the instrument definition), after the SDK and its subscribers have handled it. |
 | `send(request, correlationId?)` | Sends an `OpenfeedRequest`. Returns the correlation id, or `undefined` when not connected. |
-| `lookupInstruments(request)` | An instrument lookup: an `OpenFeedInstrumentRequest` in, `InstrumentDefinition[]` out. Waits for the connection. |
+| `lookupInstruments(request)` | An instrument lookup: an `OpenFeedInstrumentRequest` in, `InstrumentDefinition[]` out. Waits for the connection. The request is sent as given, so it needs its `instrumentType` and `spreadType` lists, empty when unused. |
 
 ## 5. Diagnostics
 
