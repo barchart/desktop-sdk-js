@@ -10,6 +10,9 @@ const delay = (ms: number) =>
 const sdk = new DesktopSdk({ logger: console });
 sdk.onConnectionState((state) => {
     console.log("connection:", state);
+    if (state === "credentials-rejected") {
+        console.error("Sign in with the credentials Barchart Desktop is signed in with.");
+    }
 });
 // The Barchart Desktop API, signed in with your Barchart Desktop credentials
 sdk.login({ url: "ws://localhost:9000", username: "your-username", password: "your-password" });
@@ -22,7 +25,7 @@ const subscription = sdk.subscribeQuote("ESZ26", {
         console.log("ask", formatted.bestBidOffer.askPrice, "x", formatted.bestBidOffer.askSize);
     },
     onError(error) {
-        console.error(error.symbol, error.message);
+        console.error(error.message);
     },
 });
 

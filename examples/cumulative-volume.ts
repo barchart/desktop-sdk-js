@@ -3,6 +3,11 @@
 import { DesktopSdk } from "@barchart/desktop-sdk-js";
 
 const sdk = new DesktopSdk();
+sdk.onConnectionState((state) => {
+    if (state === "credentials-rejected") {
+        console.error("Sign in with the credentials Barchart Desktop is signed in with.");
+    }
+});
 sdk.login({ url: "ws://localhost:9000", username: "your-username", password: "your-password" });
 
 const volumeAtPrice = new Map<number, number>();
@@ -18,5 +23,9 @@ sdk.subscribeCumulativeVolume("ESZ26", {
         }
         // `levels` is the SDK's own table, ascending by price; a consumer that needs no table of its own reads it.
         console.log(`${String(changed.length)} of ${String(levels.length)} levels changed`);
+    },
+    // Also called if the server refuses the symbol's ALL subscription, which keeps the levels up to date.
+    onError(error) {
+        console.error(error.message);
     },
 });

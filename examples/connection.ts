@@ -24,6 +24,9 @@ const subscription = sdk.subscribeQuote("ESZ26", {
     onEvent: ({ quote }) => {
         console.log(quote.session.last);
     },
+    onError: (error) => {
+        console.error(error.message);
+    },
 });
 // "pending"
 console.log(subscription.state);

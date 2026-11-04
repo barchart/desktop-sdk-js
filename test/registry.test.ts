@@ -1,7 +1,7 @@
 import { Result, Service as S, SubscriptionType as T, type IOpenFeedClient, type SubscriptionResponse } from "@openfeed/sdk-js";
 import Long from "long";
 import { describe, expect, it } from "vitest";
-import type { SubscriptionError } from "../src";
+import { SubscriptionError } from "../src";
 import { Registry } from "../src/registry";
 import { getSubscriberError, getSubscriberState, Subscriber, type Method } from "../src/subscriber";
 import { ignore, quiet } from "./helpers";
@@ -25,16 +25,22 @@ const setup = () => {
 
 const subscribe = (registry: Registry, service: S, type: T, method: Method) => {
     const errors: T[] = [];
+    const received: SubscriptionError[] = [];
     const subscriber = new Subscriber(
         { service, type, symbol: "ESZ26" },
         method,
-        { onError: (e: SubscriptionError) => void errors.push(e.type) },
+        {
+            onError: (e: SubscriptionError) => {
+                errors.push(e.type);
+                received.push(e);
+            },
+        },
         quiet,
         ignore
     );
     subscriber.entry = registry.acquire(service, type, "ESZ26", []);
     subscriber.entry.subscribers.add(subscriber);
-    return { subscriber, errors, entry: subscriber.entry };
+    return { subscriber, errors, received, entry: subscriber.entry };
 };
 
 const response = (type: T, ok: boolean) =>
@@ -70,6 +76,51 @@ describe("cumulative volume's ALL dependency", () => {
         expect(wire.filter((w) => w.startsWith("-"))).toEqual([]);
         registry.remove(cv);
         expect(wire.filter((w) => w.startsWith("-"))).toHaveLength(2);
+    });
+});
+
+describe("a subscription error", () => {
+    it("says what was refused, and keeps the server's text", () => {
+        const { registry } = setup();
+        const depth = subscribe(registry, S.REAL_TIME, T.DEPTH_PRICE, "depth");
+        registry.onResponse({
+            symbol: "ESZ26",
+            subscriptionType: T.DEPTH_PRICE,
+            unsubscribe: false,
+            status: { result: Result.INSUFFICIENT_PRIVILEGES, message: "unknown_service is not allowed" },
+        } as unknown as SubscriptionResponse);
+
+        const { error } = depth.subscriber.handle;
+        expect(error?.message).toBe(
+            'INSUFFICIENT_PRIVILEGES: DEPTH_PRICE on ESZ26 (REAL_TIME) was refused. Server said: "unknown_service is not allowed"'
+        );
+        expect(error?.result).toBe(Result.INSUFFICIENT_PRIVILEGES);
+        expect(error?.service).toBe(S.REAL_TIME);
+        expect(error?.serverMessage).toBe("unknown_service is not allowed");
+        expect(error?.requiredBy).toBeUndefined();
+    });
+
+    it("leaves out a server text that's empty, and shows a result it can't name as its number", () => {
+        const error = new SubscriptionError(999 as unknown as Result, "ESZ26", T.ALL, S.DELAYED, "");
+        expect(error.message).toBe("999: ALL on ESZ26 (DELAYED) was refused.");
+    });
+
+    it("names the cumulative volume that needed a refused ALL, only for its subscribers", () => {
+        const { registry } = setup();
+        const quote = subscribe(registry, S.REAL_TIME, T.ALL, "quote");
+        const cv = subscribe(registry, S.REAL_TIME_SNAPSHOT, T.CUMULATIVE_VOLUME, "cumulativeVolume");
+        registry.onResponse(response(T.ALL, false));
+
+        expect(quote.received[0].message).toBe('INVALID_SYMBOL: ALL on ESZ26 (REAL_TIME) was refused. Server said: "nope"');
+        expect(cv.received[0].message).toBe(
+            'INVALID_SYMBOL: ALL on ESZ26 (REAL_TIME), which CUMULATIVE_VOLUME needs, was refused. Server said: "nope"'
+        );
+        expect(cv.received[0].requiredBy).toBe(T.CUMULATIVE_VOLUME);
+        // the same object however it's reached: a later subscriber's first delivery comes from getSubscriberError
+        expect(cv.subscriber.handle.error).toBe(cv.received[0]);
+        expect(getSubscriberError(cv.entry)).toBe(cv.received[0]);
+        // diagnostics show the entry as the server answered it
+        expect(cv.entry.error).toBeUndefined();
     });
 });
 

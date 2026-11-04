@@ -15,7 +15,7 @@ sdk.subscribeQuote("ESZ26", {
         console.log(quote.session.last, formatted.session.last); // 6012.25 "6,012.25"
     },
     onError(error) {
-        console.error(error.symbol, error.message);
+        console.error(error.message);
     },
 });
 ```
@@ -69,6 +69,9 @@ const sub = sdk.subscribeDepth("ESZ26", {
     onEvent({ book }) {
         render(book.bids, book.asks);
     },
+    onError(error) {
+        console.error(error.message);
+    },
 });
 // later
 sub.close();
@@ -76,7 +79,7 @@ sub.close();
 
 - **Your callbacks never run inside `subscribe`.** The first one comes after it has returned, so you can set things up after subscribing.
 - **Subscribing to the same symbol twice is free.** Subscriptions share one Openfeed subscription, and a new subscriber gets the current state as an `initial` event.
-- **Errors are the server's.** `onError` gets a `SubscriptionError` with the protocol's `result` and message. Later subscribers to the same symbol get it too, without asking the server again.
+- **Handle `onError`.** The server can refuse a subscription, for example one your account has no permission for, and nothing else calls you when it does. `onError` gets a `SubscriptionError` whose `message` says what was refused and quotes the server. Decide in code on its `result`, the protocol's value. Later subscribers to the same symbol get it too, without asking the server again.
 - **Wildcard symbols follow rolls.** `ZC*1` keeps pointing at the front contract; after a roll, the new contract arrives as a `snapshot` event with the new `instrument`.
 
 The service defaults to real time (`Service.REAL_TIME` from `@openfeed/sdk-js`); cumulative volume defaults to `Service.REAL_TIME_SNAPSHOT`.

@@ -3,7 +3,7 @@
 // in; remove at 0 unsubscribes and deletes at once. Not exported from index.ts.
 import { type IOpenFeedClient, type OpenfeedGatewayMessage, Result, Service, type SubscriptionResponse, SubscriptionType } from "@openfeed/sdk-js";
 import type Long from "long";
-import { getMessageSubscribers, subscriptionKey, type Subscriber } from "./subscriber";
+import { getDependentError, getMessageSubscribers, subscriptionKey, type Subscriber } from "./subscriber";
 import { type SdkLogger, SubscriptionError, type SubscriptionState } from "./types";
 
 export interface Entry {
@@ -206,6 +206,7 @@ export class Registry {
                     response.status?.result ?? Result.UNKNOWN_RESULT,
                     response.symbol,
                     response.subscriptionType,
+                    entry.service,
                     response.status?.message ?? ""
                 );
                 for (const subscriber of [...entry.subscribers]) {
@@ -213,8 +214,9 @@ export class Registry {
                 }
                 // a CV doesn't update without its ALL; one already failed on its own has told its subscribers
                 for (const dependent of [...entry.dependents].filter((d) => !d.error)) {
+                    const error = getDependentError(entry.error, dependent);
                     for (const subscriber of [...dependent.subscribers]) {
-                        subscriber.fail(entry.error);
+                        subscriber.fail(error);
                     }
                 }
             }

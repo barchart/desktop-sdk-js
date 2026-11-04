@@ -5,6 +5,7 @@
 - Install it with its peer dependencies: `@barchart/desktop-sdk-js @openfeed/sdk-js long`. ES modules only; Node 22 or later, or any bundler.
 - Create one `DesktopSdk` for the application's lifetime and `login({ url, username, password })`. `logout()` keeps subscriptions; `dispose()` ends everything.
 - `subscribeQuote`, `subscribeDepth` and `subscribeCumulativeVolume` take a symbol and a listener `{ onEvent, onError, onMessage }`, and return a `Subscription`. Call `close()` on it when done.
+- Always pass `onError`: nothing else calls you when the server refuses a subscription, such as one without permission. It gets a `SubscriptionError`: log its `message`, and decide in code on its `result`.
 - Callbacks never run inside a subscribe call: the first one, an `initial` event with the current state, comes after it returns.
 - Everything the SDK returns is frozen and may be kept and compared by identity. Prices are numbers scaled to real values; `null` means the feed hasn't sent a field.
 - `formatted` on a quote event, and `instrument.formatPrice(price)`, give prices in the instrument's own notation (such as 32nds).

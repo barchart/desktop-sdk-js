@@ -1,14 +1,14 @@
-import type {
-    HeartBeat,
-    InstrumentDefinition,
-    MarketSnapshot,
-    MarketUpdate,
-    OpenFeedInstrumentRequest,
-    OpenfeedGatewayMessage,
-    OpenfeedRequest,
+import {
+    type HeartBeat,
+    type InstrumentDefinition,
+    type MarketSnapshot,
+    type MarketUpdate,
+    type OpenFeedInstrumentRequest,
+    type OpenfeedGatewayMessage,
+    type OpenfeedRequest,
     Result,
     Service,
-    SubscriptionResponse,
+    type SubscriptionResponse,
     SubscriptionType,
 } from "@openfeed/sdk-js";
 import type Long from "long";
@@ -51,15 +51,39 @@ export interface Subscription {
     close(): void;
 }
 
-/** A subscription the server refused. `result` is the proto's own Result value. */
+/** An enum value's name; a value newer than this copy of the protocol types has none, so it stays a number. */
+const getEnumName = (names: Readonly<Record<number, string | undefined>>, value: number): string => names[value] ?? String(value);
+
+const getErrorMessage = (
+    result: Result,
+    symbol: string,
+    type: SubscriptionType,
+    service: Service,
+    serverMessage: string,
+    requiredBy?: SubscriptionType
+) => {
+    const requirement = requiredBy === undefined ? "" : `, which ${getEnumName(SubscriptionType, requiredBy)} needs,`;
+    const refusal = `${getEnumName(Result, result)}: ${getEnumName(SubscriptionType, type)} on ${symbol} (${getEnumName(Service, service)})${requirement} was refused.`;
+    return serverMessage ? `${refusal} Server said: "${serverMessage}"` : refusal;
+};
+
+/**
+ * A subscription the server refused. `message` says what was refused and ends with the server's own text, which is
+ * kept as it came in `serverMessage`. Code should decide on `result`, the proto's own Result value.
+ */
 export class SubscriptionError extends Error {
     constructor(
         readonly result: Result,
         readonly symbol: string,
+        /** The subscription the server refused. */
         readonly type: SubscriptionType,
-        message: string
+        /** The service that subscription asked for. */
+        readonly service: Service,
+        readonly serverMessage: string,
+        /** Set when the refused subscription is one that the subscriber's own type depends on. */
+        readonly requiredBy?: SubscriptionType
     ) {
-        super(message);
+        super(getErrorMessage(result, symbol, type, service, serverMessage, requiredBy));
         this.name = "SubscriptionError";
     }
 }
