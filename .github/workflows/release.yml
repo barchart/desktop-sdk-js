@@ -10,7 +10,8 @@ name: Release
 # that tarball, without checking out, installing or running scripts.
 #
 # The version is staged on npm, not published: it goes public once a maintainer approves it on npmjs.com (or with
-# `npm stage approve`) with 2FA. npm's trusted publisher for this package allows staging only.
+# `npm stage approve`) with 2FA. That's the one manual step, kept outside GitHub so that a compromised repository can't
+# release anything. npm's trusted publisher for this package allows staging only.
 #
 # Actions are pinned to commit SHAs (a tag can be moved to other code); the comment names the version.
 on:
@@ -60,7 +61,7 @@ jobs:
     publish:
         needs: build
         runs-on: ubuntu-latest
-        # set up the `npm` environment in the repository's settings to require an approval before publishing
+        # npm's trusted publisher names this environment, so the job must keep it; it requires no approval on GitHub
         environment: npm
         permissions:
             id-token: write # npm trusted publishing and provenance
