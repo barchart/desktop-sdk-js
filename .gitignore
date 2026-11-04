@@ -2,6 +2,7 @@ node_modules
 dist
 coverage
 *.tgz
+.vscode/
 
 # Yarn's local state; Yarn itself comes from corepack (packageManager in package.json)
 .yarn/
