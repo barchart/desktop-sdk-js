@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/barchart/desktop-sdk-js/compare/v0.1.1...v0.2.0) (2026-11-04)
+
+
+### Features
+
+* improve error reporting and involve it in tests/examples/docs ([1872ddb](https://github.com/barchart/desktop-sdk-js/commit/1872ddb9fc2063d72b3c859271f01dcb19111f90))
+
+
+### Bug Fixes
+
+* update sdk-js and fix related type errors ([70591d8](https://github.com/barchart/desktop-sdk-js/commit/70591d83213700a4975fc77f281fb1e7eb5bb08e))
+
 ## [0.1.1](https://github.com/barchart/desktop-sdk-js/compare/v0.1.0...v0.1.1) (2026-11-02)
 
 
