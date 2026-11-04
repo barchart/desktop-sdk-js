@@ -27,8 +27,8 @@ const trades = sdk.raw.subscribe("ESZ26", SubscriptionType.TRADES, {
 const { instrumentDefinition, marketSnapshot } = await sdk.raw.requestSnapshot("ZCZ26");
 console.log(instrumentDefinition?.description, marketSnapshot.marketId.toString());
 
-// The gateway's instrument lookup.
-const definitions = await sdk.raw.lookupInstruments({ symbol: "ZC*1" });
+// The gateway's instrument lookup. The request goes out as given, so its lists are needed even when empty.
+const definitions = await sdk.raw.lookupInstruments({ symbol: "ZC*1", instrumentType: [], spreadType: [] });
 console.log(definitions.map((definition) => definition.symbol));
 
 // Trades for a minute, then everything closes.

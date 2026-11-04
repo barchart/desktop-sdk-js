@@ -249,8 +249,6 @@ export class DesktopSdk {
             this.#held.clear();
             this.#setState("credentials-rejected");
         };
-        // the listeners' parameters are typed here: @openfeed/sdk-js's own declarations import them through a path
-        // alias that doesn't resolve in an installed package, which leaves them `any`
         listeners.onHeartBeat = (heartbeat: HeartBeat) => {
             if (!isCurrent()) {
                 return;
