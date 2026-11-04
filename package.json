@@ -1,6 +1,6 @@
 {
     "name": "@barchart/desktop-sdk-js",
-    "version": "0.1.1",
+    "version": "0.2.0",
     "description": "Live quotes, order books and cumulative volume from Openfeed, kept up to date for you.",
     "license": "SEE LICENSE IN LICENSE",
     "repository": {
