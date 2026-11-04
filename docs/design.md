@@ -106,7 +106,7 @@ One entry per `(service, subscription type, symbol)`, in two layers:
 
 **Indexes:** entries by symbol and by market, updated wherever entries are created or deleted and wherever an entry's markets change, so every per-message lookup is a map lookup.
 
-**Dependencies.** A `CUMULATIVE_VOLUME` entry depends on `ALL` on `REAL_TIME` for its symbol: its own subscription only sends the seed, and the levels then change with the trades `ALL` carries. It's the same key a quote subscription uses by default, so they share one entry in either order. The dependent entries are kept on the dependency, so its failure reaches them: a subscriber sees its entry's own error, or else a failed dependency's. Each entry's own status stays as the server answered it, for diagnostics, and a dependency that recovers clears it.
+**Dependencies.** A `CUMULATIVE_VOLUME` entry depends on `ALL` on `REAL_TIME` for its symbol: its own subscription only sends the seed, and the levels then change with the trades `ALL` carries. It's the same key a quote subscription uses by default, so they share one entry in either order. The dependent entries are kept on the dependency, so its failure reaches them: a subscriber sees its entry's own error, or else a failed dependency's, as one more error object with `requiredBy` set (kept per dependency error, so it's the same object everywhere). Each entry's own status stays as the server answered it, for diagnostics, and a dependency that recovers clears it.
 
 **Why the registry is the only record of links:** keeping a copy elsewhere (a symbol-to-market map in the store, say) means two places to keep in step through rolls, exchange moves, logouts and closes. The registry's named markets already say it.
 

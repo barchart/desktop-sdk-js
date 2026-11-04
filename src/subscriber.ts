@@ -2,16 +2,16 @@
 // index.ts.
 import type { Service, SubscriptionType } from "@openfeed/sdk-js";
 import type { Entry } from "./registry";
-import type {
-    BookEvent,
-    CumulativeVolumeEvent,
-    Listener,
-    QuoteEvent,
-    RawListener,
-    SdkLogger,
-    Subscription,
+import {
+    type BookEvent,
+    type CumulativeVolumeEvent,
+    type Listener,
+    type QuoteEvent,
+    type RawListener,
+    type SdkLogger,
+    type Subscription,
     SubscriptionError,
-    SubscriptionState,
+    type SubscriptionState,
 } from "./types";
 
 /** The key of one subscription, `service|type|symbol`: entries are keyed by it. */
@@ -27,12 +27,29 @@ interface EntryKey {
     readonly symbol: string;
 }
 
+const dependentErrors = new WeakMap<SubscriptionError, SubscriptionError>();
+
+/**
+ * A dependency's error as its dependent's subscribers see it, naming what needed it. One per error, as only CV has a
+ * dependency, so `onError` and the handle's `error` give the same object.
+ */
+export const getDependentError = (error: SubscriptionError, dependent: Entry): SubscriptionError => {
+    let dependentError = dependentErrors.get(error);
+    if (!dependentError) {
+        dependentError = new SubscriptionError(error.result, error.symbol, error.type, error.service, error.serverMessage, dependent.type);
+        dependentErrors.set(error, dependentError);
+    }
+    return dependentError;
+};
+
 /**
  * The error an entry's subscribers see: its own, else a failed dependency's, since a CV doesn't update without its
  * ALL. Diagnostics show each entry's own.
  */
-export const getSubscriberError = (entry: Entry): SubscriptionError | undefined =>
-    entry.error ?? entry.dependencies.find((dependency) => dependency.error)?.error;
+export const getSubscriberError = (entry: Entry): SubscriptionError | undefined => {
+    const dependencyError = entry.dependencies.find((dependency) => dependency.error)?.error;
+    return entry.error ?? (dependencyError && getDependentError(dependencyError, entry));
+};
 
 /** The state an entry's subscribers see: `error` when getSubscriberError has one, else the entry's own. */
 export const getSubscriberState = (entry: Entry): Exclude<SubscriptionState, "closed"> => (getSubscriberError(entry) ? "error" : entry.status);

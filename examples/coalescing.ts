@@ -3,6 +3,11 @@
 import { DesktopSdk } from "@barchart/desktop-sdk-js";
 
 const sdk = new DesktopSdk({ coalesceIntervalMs: 100 });
+sdk.onConnectionState((state) => {
+    if (state === "credentials-rejected") {
+        console.error("Sign in with the credentials Barchart Desktop is signed in with.");
+    }
+});
 sdk.login({ url: "ws://localhost:9000", username: "your-username", password: "your-password" });
 
 for (const symbol of ["ESZ26", "NQZ26", "ZNZ26", "CLZ26"]) {
@@ -15,6 +20,10 @@ for (const symbol of ["ESZ26", "NQZ26", "ZNZ26", "CLZ26"]) {
             if (message.marketUpdate?.trades) {
                 console.log(symbol, "traded");
             }
+        },
+        // Errors aren't held either.
+        onError(error) {
+            console.error(error.message);
         },
     });
 }

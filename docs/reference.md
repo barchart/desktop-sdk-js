@@ -47,7 +47,7 @@ Each returns a `Subscription` (§7) at once, in state `pending`.
 - **Listener:** `{ onEvent?, onError?, onMessage? }`. `onEvent` gets the events; `onError` gets a `SubscriptionError` when the server refuses the subscription; `onMessage` also gets the subscription's raw messages, after `onEvent`.
 - **First callback:** after `subscribe` has returned, never inside it. A new subscriber gets the current state as one `initial` event, or the stored error if the server already refused the subscription.
 - **Shared subscriptions:** subscriptions with the same symbol, type and service share one Openfeed subscription, which closes with the last of them.
-- **Cumulative volume** also holds the symbol's `ALL` subscription on `REAL_TIME`, the one `subscribeQuote` uses by default, so it keeps updating with the symbol's trades. If that subscription fails, the cumulative volume subscribers get its error.
+- **Cumulative volume** also holds the symbol's `ALL` subscription on `REAL_TIME`, the one `subscribeQuote` uses by default, so it keeps updating with the symbol's trades. If that subscription fails, the cumulative volume subscribers get its error, with `requiredBy` set.
 - **Aliases** such as `ZC*1` follow rolls: after a roll, the new contract arrives as a `snapshot` event with the new `instrument`.
 - **While logged out,** subscriptions stay `pending`, and are sent at the next login.
 
@@ -124,7 +124,17 @@ Every event has:
 | `error` | The `SubscriptionError` while the state is `error`. |
 | `close()` | Ends the subscription. Idempotent; no callback arrives after it returns. |
 
-`SubscriptionError` has the server's `result`, the `symbol`, the subscription `type`, and its `message`.
+### `SubscriptionError`
+
+| Member | |
+|---|---|
+| `message` | What was refused, then the server's text: `INSUFFICIENT_PRIVILEGES: DEPTH_PRICE on ESZ26 (REAL_TIME) was refused. Server said: "…"`. For reading, not for matching. |
+| `result` | The server's answer, a `Result` from `@openfeed/sdk-js`. Decide in code on this. |
+| `symbol` | The symbol subscribed. |
+| `type` | The subscription refused, a `SubscriptionType`. |
+| `service` | The `Service` that subscription asked for. |
+| `serverMessage` | The server's text, as it came; empty if it sent none. |
+| `requiredBy` | Set on a cumulative volume subscriber's error when the refused subscription is the `ALL` it depends on: `CUMULATIVE_VOLUME`, with `type` being `ALL`. Otherwise `undefined`. |
 
 ### `QuoteRecord`
 
