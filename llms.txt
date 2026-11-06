@@ -9,7 +9,8 @@
 - Callbacks never run inside a subscribe call: the first one, an `initial` event with the current state, comes after it returns.
 - Everything the SDK returns is frozen and may be kept and compared by identity. Prices are numbers scaled to real values; `null` means the feed hasn't sent a field.
 - `formatted` on a quote event, and `instrument.formatPrice(price)`, give prices in the instrument's own notation (such as 32nds).
-- Protocol enums (`Service`, `SubscriptionType`, `Result`) and message types come from `@openfeed/sdk-js`.
+- Not every Openfeed server sends volume at price: on one that doesn't, a cumulative volume subscription goes `active`, but no events come.
+- Protocol enums (`Service`, `SubscriptionType`, `Result`) and message types come from `@openfeed/sdk-js`, as does `InstrumentLookupError`, which `raw.lookupInstruments` rejects with when the server refuses a lookup or finds nothing.
 
 ## Docs
 

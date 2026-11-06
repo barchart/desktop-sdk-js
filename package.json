@@ -57,7 +57,7 @@
         "check": "yarn typecheck && yarn lint && yarn format:check && yarn test && yarn build && yarn check:package && yarn check:esm"
     },
     "peerDependencies": {
-        "@openfeed/sdk-js": "^1.8.0",
+        "@openfeed/sdk-js": "^1.8.1",
         "long": "^5.3.2"
     },
     "devDependencies": {
@@ -65,7 +65,7 @@
         "@commitlint/cli": "21.2.4",
         "@commitlint/config-conventional": "21.2.4",
         "@eslint/js": "10.0.1",
-        "@openfeed/sdk-js": "1.8.0",
+        "@openfeed/sdk-js": "1.8.1",
         "eslint": "10.13.0",
         "eslint-config-prettier": "10.1.8",
         "husky": "9.1.7",

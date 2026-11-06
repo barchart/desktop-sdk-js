@@ -36,7 +36,8 @@ try {
     const { instrumentDefinition, marketSnapshot } = await sdk.raw.requestSnapshot("ZCZ26");
     console.log(instrumentDefinition?.description, marketSnapshot.marketId.toString());
 
-    // The gateway's instrument lookup. The request goes out as given, so its lists are needed even when empty.
+    // The gateway's instrument lookup. The request goes out as given, so its lists are needed even when empty. Rejects
+    // with an InstrumentLookupError if the server refuses it or finds nothing.
     const definitions = await sdk.raw.lookupInstruments({ symbol: "ZC*1", instrumentType: [], spreadType: [] });
     console.log(definitions.map((definition) => definition.symbol));
 
