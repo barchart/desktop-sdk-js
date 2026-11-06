@@ -82,7 +82,7 @@ sub.close();
 - **Handle `onError`.** The server can refuse a subscription, for example one your account has no permission for, and nothing else calls you when it does. `onError` gets a `SubscriptionError` whose `message` says what was refused and quotes the server. Decide in code on its `result`, the protocol's value. Later subscribers to the same symbol get it too, without asking the server again.
 - **Wildcard symbols follow rolls.** `ZC*1` keeps pointing at the front contract; after a roll, the new contract arrives as a `snapshot` event with the new `instrument`.
 
-The service defaults to real time (`Service.REAL_TIME` from `@openfeed/sdk-js`); cumulative volume defaults to `Service.REAL_TIME_SNAPSHOT`.
+The service defaults to real time (`Service.REAL_TIME` from `@openfeed/sdk-js`); cumulative volume defaults to `Service.REAL_TIME_SNAPSHOT`. Not every Openfeed server sends volume at price: on one that doesn't, the subscription goes `active`, but no events come and `getCumulativeVolume` stays `undefined`.
 
 ## Reading state
 
@@ -138,7 +138,7 @@ For what the SDK doesn't model:
 - **`sdk.raw.requestSnapshot(symbol)`:** one snapshot, as a promise.
 - **`sdk.raw.onMessage(listener)`:** every message, after the SDK applied it.
 - **`sdk.raw.send(request)`:** sends a request the SDK doesn't model.
-- **`sdk.raw.lookupInstruments(request)`:** the gateway's instrument lookup.
+- **`sdk.raw.lookupInstruments(request)`:** the gateway's instrument lookup. Rejects with an `InstrumentLookupError` if the server refuses it or finds nothing.
 
 A listener can also take its subscription's raw messages with `onMessage`, next to `onEvent`.
 

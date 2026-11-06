@@ -47,7 +47,7 @@ Each returns a `Subscription` (§7) at once, in state `pending`.
 - **Listener:** `{ onEvent?, onError?, onMessage? }`. `onEvent` gets the events; `onError` gets a `SubscriptionError` when the server refuses the subscription; `onMessage` also gets the subscription's raw messages, after `onEvent`.
 - **First callback:** after `subscribe` has returned, never inside it. A new subscriber gets the current state as one `initial` event, or the stored error if the server already refused the subscription.
 - **Shared subscriptions:** subscriptions with the same symbol, type and service share one Openfeed subscription, which closes with the last of them.
-- **Cumulative volume** also holds the symbol's `ALL` subscription on `REAL_TIME`, the one `subscribeQuote` uses by default, so it keeps updating with the symbol's trades. If that subscription fails, the cumulative volume subscribers get its error, with `requiredBy` set.
+- **Cumulative volume** also holds the symbol's `ALL` subscription on `REAL_TIME`, the one `subscribeQuote` uses by default, so it keeps updating with the symbol's trades. If that subscription fails, the cumulative volume subscribers get its error, with `requiredBy` set. Not every Openfeed server sends volume at price: on one that doesn't, the subscription goes `active`, but no events come and `getCumulativeVolume` stays `undefined`.
 - **Aliases** such as `ZC*1` follow rolls: after a roll, the new contract arrives as a `snapshot` event with the new `instrument`.
 - **While logged out,** subscriptions stay `pending`, and are sent at the next login.
 
@@ -77,8 +77,8 @@ The current state for a symbol, as the last event delivered it; `undefined` unti
 | `subscribe(symbol, type, listener?, service?)` | Any Openfeed subscription, without SDK state or events. The listener (`{ onMessage, onError? }`) gets the subscription's responses and every message for the instruments they named. `service` defaults to `REAL_TIME`. Returns a `Subscription`. |
 | `requestSnapshot(symbol, service?)` | One snapshot: resolves with `{ instrumentDefinition, marketSnapshot }`, then closes. `service` defaults to `REAL_TIME_SNAPSHOT`. Rejects if the subscription fails or the SDK is disposed. |
 | `onMessage(listener)` | Every incoming message, with its metadata (the client's symbol names and the instrument definition), after the SDK and its subscribers have handled it. |
-| `send(request, correlationId?)` | Sends an `OpenfeedRequest`. Returns the correlation id, or `undefined` when not connected. |
-| `lookupInstruments(request)` | An instrument lookup: an `OpenFeedInstrumentRequest` in, `InstrumentDefinition[]` out. Waits for the connection. The request is sent as given, so it needs its `instrumentType` and `spreadType` lists, empty when unused. |
+| `send(request, correlationId?)` | Sends an `OpenfeedRequest`. Returns the correlation id, or `undefined` when not connected. Responses arrive through `onMessage`. |
+| `lookupInstruments(request)` | An instrument lookup: an `OpenFeedInstrumentRequest` in, `InstrumentDefinition[]` out. Waits for the connection. The request is sent as given, so it needs its `instrumentType` and `spreadType` lists, empty when unused. Rejects with an `InstrumentLookupError` (from `@openfeed/sdk-js`, with the server's `result` and `serverMessage`) if the server refuses it or finds nothing, and with an error if the connection drops first. |
 
 ## 5. Diagnostics
 
