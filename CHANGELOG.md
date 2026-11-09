@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/barchart/desktop-sdk-js/compare/v0.2.1...v0.2.2) (2026-11-09)
+
+
+### Bug Fixes
+
+* simplify tresury option formatting ([9ae19ee](https://github.com/barchart/desktop-sdk-js/commit/9ae19ee0439a73b56dc4da4f97b10a5a8238c8d2))
+
 ## [0.2.1](https://github.com/barchart/desktop-sdk-js/compare/v0.2.0...v0.2.1) (2026-11-06)
 
 
