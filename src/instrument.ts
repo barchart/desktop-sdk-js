@@ -47,6 +47,12 @@ const getOptionUnderlyingRoot = (definition: InstrumentDefinition): string | und
     return FUTURES_SYMBOL.exec(definition.underlying)?.[1];
 };
 
+/**
+ * Underlying roots of the treasury options, which are written in 64ths. Their futures can have the same denominator and
+ * are written in parts of a 32nd, so the definition's price format alone can't tell them apart.
+ */
+const TREASURY_OPTION_ROOTS = ["ZB", "ZN", "UD", "TN", "ZT", "ZF"];
+
 const getPriceFormat = (definition: InstrumentDefinition, log: SdkLogger): PriceFormat => {
     const { priceFormat, priceScalingExponent } = definition;
     if (!priceFormat) {
@@ -70,40 +76,12 @@ const getPriceFormat = (definition: InstrumentDefinition, log: SdkLogger): Price
         return { numDecimals, priceScaling };
     }
 
-    // Treasury options are quoted in 64ths, whatever the definition's price format says
-    const underlyingRoot = getOptionUnderlyingRoot(definition);
-    if (underlyingRoot === "ZB" || underlyingRoot === "ZN" || underlyingRoot === "UD" || underlyingRoot === "TN") {
-        return {
-            priceScaling: 1,
-            fraction: {
-                denominator: 64,
-                subdenominator: 1,
-            },
-        };
-    }
-    if (underlyingRoot === "ZT" || underlyingRoot === "ZF") {
-        return {
-            priceScaling: 1,
-            fraction: {
-                denominator: 64,
-                subdenominator: 2,
-            },
-        };
-    }
-
-    let subdenominator = 1;
-    if (priceFormat.denominator > 32) {
-        subdenominator = priceFormat.denominator / 32;
-    } else if (priceFormat.subDenominator !== 0) {
-        subdenominator = priceFormat.subDenominator;
-    }
-    return {
-        priceScaling: 1,
-        fraction: {
-            denominator: priceFormat.denominator > 32 ? 32 : priceFormat.denominator,
-            subdenominator,
-        },
-    };
+    // Anything finer than the base is written as parts of it: in 32nds, 64 is half 32nds; in 64ths, 128 is half 64ths
+    const base = TREASURY_OPTION_ROOTS.includes(getOptionUnderlyingRoot(definition) ?? "") ? 64 : 32;
+    const { denominator, subDenominator } = priceFormat;
+    const fraction =
+        denominator > base ? { denominator: base, subdenominator: denominator / base } : { denominator, subdenominator: subDenominator || 1 };
+    return { priceScaling: 1, fraction };
 };
 
 /** The protocol-derived part of an instrument: scaling, price format and price formatting. */
