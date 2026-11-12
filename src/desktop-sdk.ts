@@ -36,7 +36,9 @@ import type {
     Subscription,
 } from "./types";
 
+/** Options for {@link DesktopSdk}'s constructor. */
 export interface DesktopSdkOptions {
+    /** Where the SDK and the Openfeed client log, `console` by default. */
     readonly logger?: SdkLogger;
     /**
      * Holds subscription events for up to this many milliseconds, then delivers one per subscription with the latest
@@ -123,16 +125,33 @@ const mergeChanges = (earlier: InstrumentChange, later: InstrumentChange): Instr
     };
 };
 
+// Internals (docs/design.md): each `login` creates an Openfeed client, and `logout` disposes it and clears market
+// state. Subscriptions are desired state: they stay across logins, and every login sends them again. Subscriptions go
+// through one loop: `subscribe` and `close()` only queue a request, and the loop processes everything queued so far as
+// one batch, after the calling code has finished (see #process). Keep the loop to registrations only: messages and
+// retries never go through it.
+
 /**
- * The Desktop SDK: Openfeed messages turned into quote, book and cumulative volume state (docs/design.md).
+ * Live quotes, order books and cumulative volume from Openfeed, kept up to date.
  *
- * One object for the app's lifetime; login is a state of it. Each `login` creates an Openfeed client, and `logout`
- * disposes it and clears market state. Subscriptions are desired state: they stay across logins, and every login
- * sends them again.
+ * Create one for the application's lifetime and log in and out of it as needed. Subscriptions stay open across
+ * logins: one made while logged out waits, and every login sends them all again. Logging out clears market state.
  *
- * Subscriptions go through one loop: `subscribe` and `close()` only queue a request, and the loop processes
- * everything queued so far as one batch, after the calling code has finished (see #process). Keep the loop to
- * registrations only: messages and retries never go through it.
+ * @example
+ * ```ts
+ * const sdk = new DesktopSdk({ logger: console });
+ * sdk.login({ url: "ws://localhost:9000", username: "your-username", password: "your-password" });
+ *
+ * const subscription = sdk.subscribeQuote("ESZ26", {
+ *     onEvent({ kind, instrument, formatted }) {
+ *         console.log(kind, instrument.symbol, formatted.session.last);
+ *     },
+ * });
+ *
+ * // later
+ * subscription.close();
+ * sdk.dispose();
+ * ```
  */
 export class DesktopSdk {
     readonly #log: SdkLogger;
@@ -196,6 +215,11 @@ export class DesktopSdk {
             })),
     });
 
+    /**
+     * Creates the SDK, logged out. Nothing connects until {@link DesktopSdk.login}.
+     *
+     * @param options - The logger (`console` by default) and event coalescing (off by default).
+     */
     constructor(options: DesktopSdkOptions = {}) {
         this.#log = options.logger ?? console;
         this.#coalesceIntervalMs = options.coalesceIntervalMs ?? 0;
@@ -209,11 +233,19 @@ export class DesktopSdk {
 
     // ---- lifetime ----
 
+    /** The connection's current state. {@link DesktopSdk.onConnectionState} reports each change. */
     get connectionState(): ConnectionState {
         return this.#state;
     }
 
-    /** Logs in, creating an Openfeed client; logs out first when already logged in. Every open subscription is sent. */
+    /**
+     * Connects to the Openfeed server, and sends every open subscription once connected. Logging in while logged in
+     * logs out first. Returns at once: follow the connection with {@link DesktopSdk.onConnectionState} or wait for it
+     * with {@link DesktopSdk.whenConnected}.
+     *
+     * @param credentials - The server's URL, and the username and password to log in with.
+     * @throws Error if the SDK has been disposed.
+     */
     login(credentials: Credentials) {
         this.#assertNotDisposed();
         this.logout();
@@ -277,7 +309,10 @@ export class DesktopSdk {
         }
     }
 
-    /** Disposes the client and clears market state. Subscriptions stay, as `pending`, for the next login. */
+    /**
+     * Disconnects and clears all market state. Subscriptions stay open, as `pending`, and are sent again at the next
+     * login. Does nothing when logged out.
+     */
     logout() {
         const client = this.#client;
         if (!client) {
@@ -293,7 +328,10 @@ export class DesktopSdk {
         this.#setState("logged-out");
     }
 
-    /** Logs out, closes every subscription and removes every listener. */
+    /**
+     * Logs out, closes every subscription and removes every listener. Pending {@link DesktopSdk.whenConnected} and
+     * `raw.requestSnapshot` calls reject. The SDK can't be used afterwards. Calling it again does nothing.
+     */
     dispose() {
         if (this.#disposed) {
             return;
@@ -320,20 +358,35 @@ export class DesktopSdk {
         this.#removedListeners.clear();
     }
 
+    /**
+     * Listens for connection state changes.
+     *
+     * @param listener - Called with each new state.
+     * @returns A function that removes the listener.
+     */
     onConnectionState(listener: (state: ConnectionState) => void): () => void {
         this.#stateListeners.add(listener);
         return () => this.#stateListeners.delete(listener);
     }
 
-    /** Each heartbeat from the gateway: its server time (null if unset), and the protocol message. */
+    /**
+     * Listens for the server's heartbeats.
+     *
+     * @param listener - Called with each heartbeat's server time (`null` if it has none) and the `HeartBeat` message.
+     * @returns A function that removes the listener.
+     */
     onHeartbeat(listener: HeartbeatListener): () => void {
         this.#heartbeatListeners.add(listener);
         return () => this.#heartbeatListeners.delete(listener);
     }
 
     /**
-     * A symbol is no longer subscribed (see isSubscribed), because the subscriptions that had it closed. Reported by the
-     * subscription loop after a batch's closes. Logout removes everything and reports `logged-out` instead.
+     * Listens for symbols that are no longer subscribed (see {@link DesktopSdk.isSubscribed}), because the last
+     * subscription holding them closed. A logout isn't reported here: it clears everything and reports `logged-out`
+     * through {@link DesktopSdk.onConnectionState}.
+     *
+     * @param listener - Called with each removed symbol.
+     * @returns A function that removes the listener.
      */
     onRemoved(listener: (symbol: string) => void): () => void {
         this.#removedListeners.add(listener);
@@ -341,16 +394,23 @@ export class DesktopSdk {
     }
 
     /**
-     * Whether the symbol is subscribed: a state subscription linked to its instrument, or an entry whose successful
-     * responses named its instrument (raw subscriptions, such as a UDS root with its instruments). The store may still
-     * have state for a symbol that isn't subscribed (a stray definition), so getQuote can answer when this is false.
+     * Whether a subscription currently holds the symbol's instrument, including a raw subscription whose responses
+     * named it. The SDK may still have state for a symbol that isn't subscribed, so `getQuote` can answer when this is
+     * `false`.
+     *
+     * @param symbol - A subscribed symbol (an alias included) or the instrument's own symbol.
      */
     isSubscribed(symbol: string): boolean {
         const marketId = this.#marketIdOf(symbol);
         return marketId !== undefined && this.#registry.hasId(marketId);
     }
 
-    /** Resolves once connected, waiting for a login if needed; rejects on rejected credentials or dispose. */
+    /**
+     * Waits for the connection, through a login if there hasn't been one yet.
+     *
+     * @returns A promise that resolves once connected, at once if already connected. It rejects if the server rejects
+     * the credentials or the SDK is disposed first.
+     */
     whenConnected(): Promise<void> {
         if (this.#disposed) {
             return Promise.reject(new Error("The Desktop SDK was disposed"));
@@ -365,15 +425,87 @@ export class DesktopSdk {
 
     // ---- subscriptions ----
 
+    /**
+     * Subscribes to a symbol's quote: last trade, session prices and volume, best bid and offer, and trading status.
+     *
+     * The first callback comes after this returns, never inside it: an `initial` event with the state the SDK already
+     * has, or the stored error if the server already refused the subscription. Subscriptions with the same symbol and
+     * service share one Openfeed subscription.
+     *
+     * @param symbol - The symbol, or an alias such as `ZC*1`, which follows rolls.
+     * @param listener - Gets each {@link QuoteEvent}, and the server's refusal if there is one.
+     * @param service - The Openfeed service, `REAL_TIME` by default.
+     * @returns The subscription, `pending` until the server answers. Close it to unsubscribe.
+     * @throws Error if the SDK has been disposed.
+     *
+     * @example
+     * ```ts
+     * const subscription = sdk.subscribeQuote("ESZ26", {
+     *     onEvent({ kind, formatted }) {
+     *         console.log(kind, formatted.session.last, formatted.bestBidOffer.bidPrice, formatted.bestBidOffer.askPrice);
+     *     },
+     *     onError(error) {
+     *         console.error(error.message);
+     *     },
+     * });
+     * ```
+     */
     subscribeQuote(symbol: string, listener: Listener<QuoteEvent>, service = Service.REAL_TIME): Subscription {
         return this.#subscribe(service, SubscriptionType.ALL, symbol, "quote", listener);
     }
 
+    /**
+     * Subscribes to a symbol's order book, by price level.
+     *
+     * The first callback comes after this returns, never inside it: an `initial` event with the state the SDK already
+     * has, or the stored error if the server already refused the subscription. Subscriptions with the same symbol and
+     * service share one Openfeed subscription.
+     *
+     * @param symbol - The symbol, or an alias such as `ZC*1`, which follows rolls.
+     * @param listener - Gets each {@link BookEvent}, and the server's refusal if there is one.
+     * @param service - The Openfeed service, `REAL_TIME` by default.
+     * @returns The subscription, `pending` until the server answers. Close it to unsubscribe.
+     * @throws Error if the SDK has been disposed.
+     *
+     * @example
+     * ```ts
+     * const subscription = sdk.subscribeDepth("ESZ26", {
+     *     onEvent({ book }) {
+     *         console.log("best bid", book.bids[0]?.price, "best ask", book.asks[0]?.price);
+     *     },
+     * });
+     * ```
+     */
     subscribeDepth(symbol: string, listener: Listener<BookEvent>, service = Service.REAL_TIME): Subscription {
         return this.#subscribe(service, SubscriptionType.DEPTH_PRICE, symbol, "depth", listener);
     }
 
-    /** On REAL_TIME_SNAPSHOT by default. Also holds the symbol's ALL on REAL_TIME, whose trades update CV. */
+    /**
+     * Subscribes to a symbol's cumulative volume: the volume traded at each price.
+     *
+     * It also holds the symbol's quote subscription on `REAL_TIME`, whose trades keep the volume up to date; if that
+     * one is refused, this subscription's listeners get its error, with `requiredBy` set. Not every Openfeed server
+     * sends volume at price: on one that doesn't, the subscription goes `active` but no events come.
+     *
+     * The first callback comes after this returns, never inside it, as for {@link DesktopSdk.subscribeQuote}.
+     *
+     * @param symbol - The symbol, or an alias such as `ZC*1`, which follows rolls.
+     * @param listener - Gets each {@link CumulativeVolumeEvent}, and the server's refusal if there is one.
+     * @param service - The Openfeed service, `REAL_TIME_SNAPSHOT` by default.
+     * @returns The subscription, `pending` until the server answers. Close it to unsubscribe.
+     * @throws Error if the SDK has been disposed.
+     *
+     * @example
+     * ```ts
+     * const subscription = sdk.subscribeCumulativeVolume("ESZ26", {
+     *     onEvent({ changed }) {
+     *         for (const { price, volume } of changed) {
+     *             console.log(price, volume);
+     *         }
+     *     },
+     * });
+     * ```
+     */
     subscribeCumulativeVolume(symbol: string, listener: Listener<CumulativeVolumeEvent>, service = Service.REAL_TIME_SNAPSHOT): Subscription {
         return this.#subscribe(service, SubscriptionType.CUMULATIVE_VOLUME, symbol, "cumulativeVolume", listener);
     }
@@ -382,15 +514,33 @@ export class DesktopSdk {
 
     // A symbol is a subscribed name (aliases included) or an instrument's own symbol (#marketIdOf).
 
+    /**
+     * The instrument's definition: its symbol, description, exchange, price format and more.
+     *
+     * @param symbol - A subscribed symbol (an alias included) or the instrument's own symbol.
+     * @returns The instrument, frozen; `undefined` until the SDK has its definition.
+     */
     getInstrument(symbol: string): Instrument | undefined {
         return this.#store.getInstrumentById(this.#marketIdOf(symbol));
     }
 
+    /**
+     * The current quote, as the last quote event delivered it. For the same values as strings, use
+     * {@link DesktopSdk.getFormattedQuote}.
+     *
+     * @param symbol - A subscribed symbol (an alias included) or the instrument's own symbol.
+     * @returns The quote, frozen; `undefined` until the SDK has one.
+     */
     getQuote(symbol: string): QuoteRecord | undefined {
         return this.#store.getQuoteById(this.#marketIdOf(symbol));
     }
 
-    /** The current quote as strings, as a quote event's `formatted` carries them; undefined while there's no quote. */
+    /**
+     * The current quote as strings in the instrument's price format, as a quote event's `formatted` carries them.
+     *
+     * @param symbol - A subscribed symbol (an alias included) or the instrument's own symbol.
+     * @returns The formatted quote; `undefined` until the SDK has a quote.
+     */
     getFormattedQuote(symbol: string): FormattedQuote | undefined {
         const marketId = this.#marketIdOf(symbol);
         const quote = this.#store.getQuoteById(marketId);
@@ -398,11 +548,23 @@ export class DesktopSdk {
         return quote && instrument ? formatQuote(quote, instrument) : undefined;
     }
 
+    /**
+     * The current order book, as the last book event delivered it. Each side has the instrument's `bookDepth` levels,
+     * best price first; an empty level has price and size 0.
+     *
+     * @param symbol - A subscribed symbol (an alias included) or the instrument's own symbol.
+     * @returns The book, frozen; `undefined` until the SDK has one.
+     */
     getBook(symbol: string): Book | undefined {
         return this.#store.getBookById(this.#marketIdOf(symbol));
     }
 
-    /** Ascending by price; undefined until a snapshot brings volume at price. */
+    /**
+     * The volume traded at each price, as the last cumulative volume event delivered it.
+     *
+     * @param symbol - A subscribed symbol (an alias included) or the instrument's own symbol.
+     * @returns The levels, ascending by price and frozen; `undefined` until a snapshot brings volume at price.
+     */
     getCumulativeVolume(symbol: string): readonly PriceVolume[] | undefined {
         return this.#store.getCumulativeVolumeById(this.#marketIdOf(symbol));
     }

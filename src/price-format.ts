@@ -23,11 +23,40 @@ const toFixedNumber = (num: number, digits: number) => {
     return Math.round(num * pow) / pow;
 };
 
+/**
+ * Adds thousands separators to a decimal number's text.
+ *
+ * @param value - The number as text, such as `price.toFixed(2)`.
+ * @param thousandsSeparator - The separator to add, `","` by default.
+ * @param decimalSeparator - The decimal separator `value` uses, `"."` by default. It's kept as is.
+ * @returns The text with separators: `"1250.5"` becomes `"1,250.5"`.
+ *
+ * @example
+ * ```ts
+ * formatDecimal("1234567.25"); // "1,234,567.25"
+ * formatDecimal("1234567,25", ".", ","); // "1.234.567,25"
+ * ```
+ */
 export const formatDecimal = (value: string, thousandsSeparator = ",", decimalSeparator = ".") => {
     const [integerPart, decimalPart] = value.split(decimalSeparator);
     return `${integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandsSeparator)}${decimalPart ? decimalSeparator : ""}${decimalPart || ""}`;
 };
 
+/**
+ * Formats a price in a format you choose. To format in an instrument's own format, use its `formatPrice` instead.
+ *
+ * @param price - The price. `null` and `undefined` give `""`.
+ * @param format - A fixed number of decimals (`numDecimals`, with thousands separators) or a fraction (`fraction`,
+ * as in "112-16" for 112 and 16/32). With neither, the number as is.
+ * @returns The formatted price.
+ *
+ * @example
+ * ```ts
+ * formatPrice(1234.5, { numDecimals: 2, priceScaling: 100 }); // "1,234.50"
+ * formatPrice(112.5, { fraction: { denominator: 32, subdenominator: 1 }, priceScaling: 1 }); // "112-16"
+ * formatPrice(null, { numDecimals: 2, priceScaling: 100 }); // ""
+ * ```
+ */
 export const formatPrice = (price: number | null | undefined, format: PriceFormat) => {
     if (price === null || price === undefined) {
         return "";
