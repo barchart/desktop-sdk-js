@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/barchart/desktop-sdk-js/compare/v0.2.2...v0.3.0) (2026-11-12)
+
+
+### Features
+
+* move name tracking to registry only, deliver named Instruments to the outside ([1e0e433](https://github.com/barchart/desktop-sdk-js/commit/1e0e4339e8ff7b0ac3706b809e3ae227ab7bdaca))
+
 ## [0.2.2](https://github.com/barchart/desktop-sdk-js/compare/v0.2.1...v0.2.2) (2026-11-09)
 
 
