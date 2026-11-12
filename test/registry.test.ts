@@ -1,4 +1,11 @@
-import { Result, Service as S, SubscriptionType as T, type IOpenFeedClient, type SubscriptionResponse } from "@openfeed/sdk-js";
+import {
+    Result,
+    Service as S,
+    SubscriptionType as T,
+    type InstrumentDefinition,
+    type IOpenFeedClient,
+    type SubscriptionResponse,
+} from "@openfeed/sdk-js";
 import Long from "long";
 import { describe, expect, it } from "vitest";
 import { SubscriptionError } from "../src";
@@ -161,5 +168,64 @@ describe("a failed dependency", () => {
         registry.detach();
         expect(getSubscriberState(cv.entry)).toBe("pending");
         expect(getSubscriberError(cv.entry)).toBeUndefined();
+    });
+});
+
+describe("definition symbols", () => {
+    /** An entry on `symbol` whose response names `marketId`. */
+    const naming = (registry: Registry, symbol: string, marketId: number) => {
+        const entry = registry.acquire(S.REAL_TIME, T.ALL, symbol, []);
+        registry.onResponse({
+            symbol,
+            subscriptionType: T.ALL,
+            unsubscribe: false,
+            marketId: Long.fromNumber(marketId),
+            status: { result: Result.SUCCESS, message: "" },
+        } as unknown as SubscriptionResponse);
+        return entry;
+    };
+    const define = (registry: Registry, marketId: number, symbol: string) => {
+        registry.onDefinition({ marketId: Long.fromNumber(marketId), symbol } as unknown as InstrumentDefinition);
+    };
+
+    it("find a named market until the last entry naming it goes", () => {
+        const { registry } = setup();
+        const root = naming(registry, "ZC^UDS", 7);
+        const quote = naming(registry, "ZCZ26", 7);
+        define(registry, 7, "ZCZ6");
+        expect(registry.getMarketId("ZCZ6")).toBe("7");
+
+        registry.remove(root);
+        expect(registry.getMarketId("ZCZ6")).toBe("7");
+        registry.remove(quote);
+        expect(registry.getMarketId("ZCZ6")).toBeUndefined();
+    });
+
+    it("aren't kept for a market no entry names", () => {
+        const { registry } = setup();
+        define(registry, 9, "ZCH7");
+        expect(registry.getMarketId("ZCH7")).toBeUndefined();
+    });
+
+    it("follow an exchange move, and a new definition", () => {
+        const { registry } = setup();
+        naming(registry, "ZC^UDS", 7);
+        define(registry, 7, "ZCZ6");
+        registry.moved("7", "8");
+        expect(registry.getMarketId("ZCZ6")).toBe("8");
+
+        define(registry, 8, "ZCZ26");
+        expect([registry.getMarketId("ZCZ6"), registry.getMarketId("ZCZ26")]).toEqual([undefined, "8"]);
+    });
+
+    it("stay with the market that took one last, when the other one goes", () => {
+        const { registry } = setup();
+        const first = naming(registry, "ZC^UDS", 7);
+        naming(registry, "ZW^UDS", 8);
+        define(registry, 7, "XZ6");
+        define(registry, 8, "XZ6");
+
+        registry.remove(first);
+        expect(registry.getMarketId("XZ6")).toBe("8");
     });
 });

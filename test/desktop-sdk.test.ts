@@ -171,6 +171,102 @@ describe("raw access and lifetime", () => {
     });
 });
 
+describe("an instrument's symbol", () => {
+    it("is the name it's reached by, with one copy per name until the next definition", async () => {
+        const sdk = createSdk();
+        const got: QuoteEvent[] = [];
+        sdk.login({ url: "ws://test", username: "u", password: "p" });
+        for (const symbol of ["ESZ26", "ES*1"]) {
+            sdk.subscribeQuote(symbol, {
+                onEvent: (e) => {
+                    got.push(e);
+                },
+            });
+        }
+        await sleep(0);
+        for (const symbol of ["ESZ26", "ES*1"]) {
+            send({
+                subscriptionResponse: { symbol, subscriptionType: T.ALL, unsubscribe: false, marketId: mid, status: { result: Result.SUCCESS } },
+            });
+        }
+        send({ instrumentDefinition: definition({ symbol: "ESZ6" }) });
+        snapshot();
+        bbo(10000);
+
+        expect(got.map((e) => [e.symbol, e.instrument.symbol])).toEqual([
+            ["ESZ26", "ESZ26"],
+            ["ES*1", "ES*1"],
+            ["ESZ26", "ESZ26"],
+            ["ES*1", "ES*1"],
+        ]);
+        const alias = defined(sdk.getInstrument("ES*1"));
+        expect([got[1].instrument, got[3].instrument]).toEqual([alias, alias]);
+        expect(got[1].instrument).toBe(got[3].instrument);
+        expect(defined(sdk.getInstrument("ESZ26")).symbol).toBe("ESZ26");
+        expect(alias.definition.symbol).toBe("ESZ6");
+        // asked for by the definition's own symbol, it's named by that
+        expect(defined(sdk.getInstrument("ESZ6")).symbol).toBe("ESZ6");
+
+        send({ instrumentDefinition: definition({ symbol: "ESZ6", bookDepth: 3 }) });
+        const redefined = defined(sdk.getInstrument("ES*1"));
+        expect(redefined).not.toBe(alias);
+        expect([redefined.symbol, redefined.bookDepth]).toEqual(["ES*1", 3]);
+    });
+});
+
+describe("markets a subscription names", () => {
+    const uds = (marketId: number, symbol: string) => {
+        send({
+            subscriptionResponse: {
+                symbol: "ZC^UDS",
+                subscriptionType: T.ALL,
+                unsubscribe: false,
+                marketId: toLong(marketId),
+                status: { result: Result.SUCCESS },
+            },
+        });
+        send({ instrumentDefinition: definition({ marketId, symbol }) });
+        send({ marketSnapshot: { marketId: toLong(marketId), tradeDate: 0, transactionTime: toLong(0), priceLevels: [] } });
+    };
+
+    it("keep no state for a market none names, and hand its messages to the raw listeners only", async () => {
+        const sdk = createSdk();
+        let raw = 0;
+        sdk.raw.onMessage(() => {
+            raw += 1;
+        });
+        sdk.login({ url: "ws://test", username: "u", password: "p" });
+        await sleep(0);
+        send({ instrumentDefinition: definition({ marketId: 7, symbol: "ZCZ6" }) });
+        send({ marketSnapshot: { marketId: toLong(7), tradeDate: 0, transactionTime: toLong(0), priceLevels: [] } });
+        await sleep(0);
+        expect(raw).toBe(2);
+        expect([sdk.getInstrument("ZCZ6"), sdk.getQuote("ZCZ6")]).toEqual([undefined, undefined]);
+    });
+
+    it("find a root subscription's instruments by their definition's symbol, while it's open", async () => {
+        const sdk = createSdk();
+        const removed: string[] = [];
+        sdk.onRemoved((symbol) => removed.push(symbol));
+        sdk.login({ url: "ws://test", username: "u", password: "p" });
+        const root = sdk.raw.subscribe("ZC^UDS", T.ALL, { onMessage: ignore });
+        await sleep(0);
+        uds(7, "ZCZ6");
+        expect(defined(sdk.getInstrument("ZCZ6")).symbol).toBe("ZCZ6");
+        expect(sdk.getQuote("ZCZ6")).toBeDefined();
+        expect(sdk.isSubscribed("ZCZ6")).toBe(true);
+
+        root.close();
+        await sleep(0);
+        expect(removed.sort()).toEqual(["ZCZ6", "ZC^UDS"]);
+        expect([sdk.isSubscribed("ZCZ6"), sdk.getQuote("ZCZ6")]).toEqual([false, undefined]);
+
+        // one still on its way after the close doesn't bring the market back
+        send({ instrumentDefinition: definition({ marketId: 7, symbol: "ZCZ6" }) });
+        expect(sdk.getInstrument("ZCZ6")).toBeUndefined();
+    });
+});
+
 describe("delivery", () => {
     it("delivers an event per message by default", async () => {
         const { got } = await setup();

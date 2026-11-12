@@ -76,23 +76,17 @@ const freezeBook = (book: Book): Book => {
 };
 
 /**
- * State only. Which subscribed symbol names which market is the registry's (each entry's named markets); the store
- * never decides when a market goes: the SDK calls removeId once no subscription names it (DesktopSdk.#tryRemoveId).
+ * State only, by market id. Which symbol names which market is the registry's, and so is which markets are kept: the
+ * SDK applies a message only for a market a subscription names, and calls removeId once none does
+ * (DesktopSdk.#tryRemoveId).
  */
 export class InstrumentStore {
     readonly #instruments = new Map<string, InstrumentState>();
-    /** Each definition's own symbol → market; how an instrument is found by its own symbol (a root subscription's, say). */
-    readonly #bySymbol = new Map<string, string>();
 
     constructor(private readonly log: SdkLogger) {}
 
-    /** The market's state and its instrument-symbol index entry go. */
     removeId(marketId: string) {
-        const market = this.#instruments.get(marketId);
         this.#instruments.delete(marketId);
-        if (market && this.#bySymbol.get(market.instrument.symbol) === marketId) {
-            this.#bySymbol.delete(market.instrument.symbol);
-        }
     }
 
     /** `instrumentAction` EXCHANGE_MOVE: the instrument and its state move to a new marketId. */
@@ -103,21 +97,10 @@ export class InstrumentStore {
         }
         this.#instruments.delete(from);
         this.#instruments.set(to, state);
-        for (const [symbol, id] of this.#bySymbol) {
-            if (id === from) {
-                this.#bySymbol.set(symbol, to);
-            }
-        }
-    }
-
-    /** The market whose definition has this symbol. */
-    getMarketId(symbol: string): string | undefined {
-        return this.#bySymbol.get(symbol);
     }
 
     clear() {
         this.#instruments.clear();
-        this.#bySymbol.clear();
     }
 
     // Getters by marketId; undefined in, undefined out, so a lookup can be passed straight through.
@@ -201,7 +184,6 @@ export class InstrumentStore {
                 lastUpdate: undefined,
             });
         }
-        this.#bySymbol.set(definition.symbol, marketId);
     }
 
     #snapshot(message: OpenfeedGatewayMessage, snapshot: MarketSnapshot): InstrumentChange | undefined {

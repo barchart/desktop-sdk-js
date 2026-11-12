@@ -8,6 +8,7 @@ export type PriceNotation = "native" | "decimal";
 
 export interface Instrument {
     readonly marketId: string;
+    /** The symbol it was subscribed or asked for with (ES*1); the definition's own, which can be the exchange's (ESZ6), is `definition.symbol`. */
     readonly symbol: string;
     readonly description: string;
     readonly instrumentType: InstrumentDefinition_InstrumentType;
