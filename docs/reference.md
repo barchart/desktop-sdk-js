@@ -58,7 +58,7 @@ Each returns a `Subscription` (§7) at once, in state `pending`.
 
 ## 3. State
 
-The current state for a symbol, as the last event delivered it; `undefined` until the SDK has it. Everything returned is frozen.
+The current state for a symbol, as the last event delivered it; `undefined` until the SDK has it. Everything returned is frozen. The symbol is one you subscribed to, an alias included, or the definition symbol of an instrument a root subscription (`ZC^UDS`) brought in, while it's open.
 
 | Method | Returns |
 |---|---|
@@ -77,7 +77,7 @@ The current state for a symbol, as the last event delivered it; `undefined` unti
 | `subscribe(symbol, type, listener?, service?)` | Any Openfeed subscription, without SDK state or events. The listener (`{ onMessage, onError? }`) gets the subscription's responses and every message for the instruments they named. `service` defaults to `REAL_TIME`. Returns a `Subscription`. |
 | `requestSnapshot(symbol, service?)` | One snapshot: resolves with `{ instrumentDefinition, marketSnapshot }`, then closes. `service` defaults to `REAL_TIME_SNAPSHOT`. Rejects if the subscription fails or the SDK is disposed. |
 | `onMessage(listener)` | Every incoming message, with its metadata (the client's symbol names and the instrument definition), after the SDK and its subscribers have handled it. |
-| `send(request, correlationId?)` | Sends an `OpenfeedRequest`. Returns the correlation id, or `undefined` when not connected. Responses arrive through `onMessage`. |
+| `send(request, correlationId?)` | Sends an `OpenfeedRequest`. Returns the correlation id, or `undefined` when not connected. Responses arrive through `onMessage`; the SDK keeps no state for what it brings. |
 | `lookupInstruments(request)` | An instrument lookup: an `OpenFeedInstrumentRequest` in, `InstrumentDefinition[]` out. Waits for the connection. The request is sent as given, so it needs its `instrumentType` and `spreadType` lists, empty when unused. Rejects with an `InstrumentLookupError` (from `@openfeed/sdk-js`, with the server's `result` and `serverMessage`) if the server refuses it or finds nothing, and with an error if the connection drops first. |
 
 ## 5. Diagnostics
@@ -168,7 +168,8 @@ Fields are formatted when read. `JSON.stringify(formatted)` gives every view's v
 
 | Member | |
 |---|---|
-| `marketId`, `symbol`, `description`, `instrumentType`, `exchangeCode`, `timeZoneName`, `bookDepth`, `minimumPriceIncrement` | From the instrument definition. |
+| `symbol` | The symbol you subscribed with, as the event's `symbol`, or the one you passed to `getInstrument`: for `ES*1`, it's `ES*1`. The definition's own `symbol` can be the exchange's (`ESZ6`). |
+| `marketId`, `description`, `instrumentType`, `exchangeCode`, `timeZoneName`, `bookDepth`, `minimumPriceIncrement` | From the instrument definition. |
 | `priceFormat` | The `PriceFormat` its prices are written in. |
 | `definition` | The whole `InstrumentDefinition`. |
 | `price(raw)`, `quantity(raw)` | A protocol price or quantity, scaled; for values read from raw messages. |

@@ -58,8 +58,8 @@ Listeners are called inside `try/catch`: one that throws is logged, and the rest
 
 One state per `marketId`, since a `marketId` is one listed instrument on its exchange: the `Instrument`, the quote record, the book, the cumulative volume (a map from price to volume, and its ascending levels), and the last snapshot and last applied update.
 
-- **State only.** Which subscribed symbol names which market is the registry's (§6); the store's getters take a `marketId`, and the facade resolves a symbol first.
-- **Instrument-symbol index:** every definition maps its own `symbol` to its market. The facade falls back to it when no subscription under a symbol names a market. That's how a root subscription's instruments, and any instrument by its own symbol, are found.
+- **State only, for named markets.** Which symbol names which market is the registry's (§6); the store's getters take a `marketId`, and the facade resolves a symbol first. A market message is applied only when an entry names its market; anything else, such as `raw.send`'s traffic or a message still arriving after its subscription closed, reaches the raw listeners only.
+- **Named instruments:** the store keeps one `Instrument` per market, with the definition's `symbol`. The facade hands out a copy per name it's reached by, with `symbol` set to that name (`ES*1`, `ESZ26`), kept until a new definition replaces the store's instrument.
 - **Definitions** create a market, or replace its instrument and keep its state.
 - **Snapshots and updates without a definition** are skipped: there's nothing to scale them with.
 - **Snapshots** replace the market's state; **updates** go through the reducers below, once the market has had a snapshot.
@@ -105,6 +105,8 @@ One entry per `(service, subscription type, symbol)`, in two layers:
 **Links.** A symbol links to the markets its entries named only while a state subscriber, or a dependent entry, is on one of them. That's computed, not stored, so it stops the moment the last one leaves. Raw subscribers never link, so a root subscription (one symbol, many markets) doesn't move its symbol from market to market.
 
 **Indexes:** entries by symbol and by market, updated wherever entries are created or deleted and wherever an entry's markets change, so every per-message lookup is a map lookup.
+
+**Definition symbols.** A definition for a market an entry names maps its `symbol` (which can be the exchange's, `ESZ6`) to the market, both ways. The facade falls back to it when no subscription under a symbol names a market: that's how a root subscription's instruments, which have no subscribed name, are found. It lives as long as the market is named: the last entry to leave the market takes it, a new definition replaces it, and an exchange move carries it to the new market.
 
 **Dependencies.** A `CUMULATIVE_VOLUME` entry depends on `ALL` on `REAL_TIME` for its symbol: its own subscription only sends the seed, and the levels then change with the trades `ALL` carries. It's the same key a quote subscription uses by default, so they share one entry in either order. The dependent entries are kept on the dependency, so its failure reaches them: a subscriber sees its entry's own error, or else a failed dependency's, as one more error object with `requiredBy` set (kept per dependency error, so it's the same object everywhere). Each entry's own status stays as the server answered it, for diagnostics, and a dependency that recovers clears it.
 
