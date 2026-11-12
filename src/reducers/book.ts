@@ -3,15 +3,23 @@ import type Long from "long";
 import type { Instrument } from "../instrument";
 import type { SdkLogger } from "../types";
 
+/** One level of an order book. An empty level has price and size 0. */
 export interface PriceLevel {
     readonly price: number;
+    /** The quantity at this price. */
     readonly size: number;
+    /** How many orders make up `size`, when the feed sends it. */
     readonly orderCount?: number;
 }
 
-/** Fixed length: both sides always have `bookDepth` slots; empty slots are { price: 0, size: 0 }. */
+/**
+ * An order book by price level. Both sides always have the instrument's `bookDepth` levels, best price first; empty
+ * levels are `{ price: 0, size: 0 }`.
+ */
 export interface Book {
+    /** The buy side, highest price first. */
     readonly bids: PriceLevel[];
+    /** The sell side, lowest price first. */
     readonly asks: PriceLevel[];
 }
 

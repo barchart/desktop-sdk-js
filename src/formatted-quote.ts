@@ -4,7 +4,25 @@ import type { FormattedGroup } from "./formatted-view";
 import type { Instrument } from "./instrument";
 import type { BestBidOfferRecord, QuoteRecord, SessionRecord } from "./reducers/quote";
 
+/**
+ * A session's prices and quantities as strings, with the same field names as {@link SessionRecord}; `""` for a field
+ * that isn't set. Prices are in the instrument's own notation, and in decimal notation under `decimal`. `values` has
+ * every field as one plain object.
+ *
+ * @example
+ * ```ts
+ * formatted.session.last; // "112-16"
+ * formatted.session.decimal.last; // "112.50000"
+ * formatted.session.volume; // "1,234"
+ * ```
+ */
 export type FormattedSession = FormattedGroup<SessionRecord>;
+
+/**
+ * The best bid and offer as strings, with the same field names as {@link BestBidOfferRecord}; `""` for a field that
+ * isn't set. Prices are in the instrument's own notation, and in decimal notation under `decimal`. `values` has every
+ * field as one plain object.
+ */
 export type FormattedBestBidOffer = FormattedGroup<BestBidOfferRecord>;
 
 /**
@@ -13,7 +31,9 @@ export type FormattedBestBidOffer = FormattedGroup<BestBidOfferRecord>;
  * formatting dates takes a time zone and a locale. `JSON.stringify` gives every group's values.
  */
 export interface FormattedQuote {
+    /** The current session. */
     readonly session: FormattedSession;
+    /** The session before it. */
     readonly previousSession: FormattedSession;
     readonly bestBidOffer: FormattedBestBidOffer;
 }

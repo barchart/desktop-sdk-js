@@ -23,12 +23,15 @@ import type { QuoteRecord } from "./reducers/quote";
  */
 export type ConnectionState = "logged-out" | "connecting" | "connected" | "disconnected" | "credentials-rejected";
 
+/** What `sdk.login` connects with. */
 export interface Credentials {
+    /** The Openfeed server's WebSocket URL, such as `ws://localhost:9000` for the Barchart Desktop API. */
     readonly url: string;
     readonly username: string;
     readonly password: string;
 }
 
+/** Where the SDK and the Openfeed client log. `console` is one. */
 export interface SdkLogger {
     log(...data: unknown[]): void;
     warn(...data: unknown[]): void;
@@ -39,11 +42,15 @@ export interface SdkLogger {
 export type SubscriptionState = "pending" | "active" | "error" | "closed";
 
 /**
- * What a subscriber holds. Closing it is the only way to give up the subscription.
- * After `subscribe` returns, the subscription loop delivers the current state as one `initial` event (or a stored
- * error to `onError`); events report changes from then on.
+ * What a subscribe method returns. Closing it is the only way to give up the subscription.
+ * After `subscribe` returns, the listener gets the current state as one `initial` event (or a stored error through
+ * `onError`); events report changes from then on.
  */
 export interface Subscription {
+    /**
+     * Where the subscription stands: `pending` until the server answers, then `active` or `error`; `closed` once
+     * closed.
+     */
     readonly state: SubscriptionState;
     /** The server's refusal, if the subscription is in `error` (also one stored from an earlier subscriber). */
     readonly error: SubscriptionError | undefined;
@@ -73,12 +80,15 @@ const getErrorMessage = (
  */
 export class SubscriptionError extends Error {
     constructor(
+        /** Openfeed's result code for the refusal. Decide on this, not on the message's text. */
         readonly result: Result,
+        /** The symbol the subscription asked for. */
         readonly symbol: string,
         /** The subscription the server refused. */
         readonly type: SubscriptionType,
         /** The service that subscription asked for. */
         readonly service: Service,
+        /** The server's own text, as it came; empty if it sent none. */
         readonly serverMessage: string,
         /** Set when the refused subscription is one that the subscriber's own type depends on. */
         readonly requiredBy?: SubscriptionType
@@ -88,9 +98,19 @@ export class SubscriptionError extends Error {
     }
 }
 
+/**
+ * What a subscribe method calls. Every callback is optional. None is called inside `subscribe`, and none after the
+ * subscription's `close()` returns.
+ *
+ * @typeParam E - The subscription's event: {@link QuoteEvent}, {@link BookEvent} or {@link CumulativeVolumeEvent}.
+ */
 export interface Listener<E> {
-    /** Optional: a subscriber may only want what the subscription holds, or only its raw messages (`onMessage`). */
+    /**
+     * Each event: the current state once (`initial`), then every change. Leave it out to only hold the subscription,
+     * or to only use `onMessage`.
+     */
     onEvent?(event: E): void;
+    /** The server refused the subscription; the subscription is then in `error`. */
     onError?(error: SubscriptionError): void;
     /**
      * Optional: also every raw message for the subscription's instrument, as a raw subscription gets it (responses,
@@ -100,9 +120,11 @@ export interface Listener<E> {
     onMessage?(message: OpenfeedGatewayMessage, metadata: MessageMetadata): void;
 }
 
-/** What the JS client knows about a message beyond the protocol: its symbol names and the market's definition. */
+/** What the Openfeed client knows about a message beyond the protocol: its symbol names and the market's definition. */
 export interface MessageMetadata {
+    /** The names the message's instrument was subscribed under. */
     readonly symbolNames: readonly string[];
+    /** The instrument's definition, if the client has it. */
     readonly definition: InstrumentDefinition | undefined;
 }
 
@@ -111,7 +133,9 @@ export type HeartbeatListener = (serverTime: Date | null, raw: HeartBeat) => voi
 
 /** Gets the subscription's responses and every message for the markets those responses named. */
 export interface RawListener {
+    /** Each message, with what the Openfeed client knows about it. */
     onMessage(message: OpenfeedGatewayMessage, metadata: MessageMetadata): void;
+    /** The server refused the subscription; the subscription is then in `error`. */
     onError?(error: SubscriptionError): void;
 }
 
@@ -124,13 +148,19 @@ export type EventKind = "initial" | "snapshot" | "update";
 
 /** What every event carries. Exported for the SDK's own use; index.ts doesn't re-export it. */
 export interface EventBase {
+    /** The symbol as subscribed, an alias such as `ZC*1` included. */
     readonly symbol: string;
+    /** The instrument the symbol stands for; after an alias rolls, the new contract. */
     readonly instrument: Instrument;
+    /** Why the event came: the current state for a new subscriber, or a message just applied. */
     readonly kind: EventKind;
+    /** The message behind the event: the one just applied, or for `initial` the instrument's last snapshot. */
     readonly raw: OpenfeedGatewayMessage;
 }
 
+/** What `subscribeQuote`'s listener gets: the quote as numbers and as strings. */
 export interface QuoteEvent extends EventBase {
+    /** The whole quote, the same object as getQuote. */
     readonly quote: QuoteRecord;
     /**
      * The same quote as strings, formatted when read: `formatted.session.last` → "112-16",
@@ -139,11 +169,13 @@ export interface QuoteEvent extends EventBase {
     readonly formatted: FormattedQuote;
 }
 
+/** What `subscribeDepth`'s listener gets. */
 export interface BookEvent extends EventBase {
     /** The whole book, the same object as getBook. */
     readonly book: Book;
 }
 
+/** What `subscribeCumulativeVolume`'s listener gets: every level, and the ones this message changed. */
 export interface CumulativeVolumeEvent extends EventBase {
     /** Every level, ascending by price: the same array as getCumulativeVolume. A snapshot starts them over. */
     readonly levels: readonly PriceVolume[];
@@ -154,29 +186,42 @@ export interface CumulativeVolumeEvent extends EventBase {
     readonly changed: readonly PriceVolume[];
 }
 
+/** The volume traded at one price. */
 export interface PriceVolume {
     readonly price: number;
+    /** The total traded at `price` so far. */
     readonly volume: number;
 }
 
+/** What `diagnostics.getLastMessages` returns: the market's last messages, as they came. */
 export interface LastMessages {
+    /** The last snapshot applied; `undefined` before the first. */
     readonly snapshot: MarketSnapshot | undefined;
+    /** The last update applied; `undefined` before the first. */
     readonly update: MarketUpdate | undefined;
 }
 
-/** One registry entry, for diagnostics. */
+/**
+ * One Openfeed subscription the SDK holds, for diagnostics. Subscribers with the same symbol, type and service share
+ * one.
+ */
 export interface SubscriptionInfo {
     readonly service: Service;
     readonly type: SubscriptionType;
+    /** The symbol as subscribed. */
     readonly symbol: string;
     readonly state: Exclude<SubscriptionState, "closed">;
+    /** How many subscriptions share it. */
     readonly subscribers: number;
+    /** The server's refusal, while in `error`. */
     readonly error: SubscriptionError | undefined;
+    /** The server's last answer; `undefined` until it answers. */
     readonly response: SubscriptionResponse | undefined;
 }
 
-/** What `requestSnapshot` resolves with: the shape `getSnapshot` has always returned. */
+/** What `raw.requestSnapshot` resolves with. */
 export interface SnapshotMessage {
+    /** The instrument's definition, if the server sent one. */
     readonly instrumentDefinition: InstrumentDefinition | undefined;
     readonly marketSnapshot: MarketSnapshot;
 }

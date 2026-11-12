@@ -1,12 +1,27 @@
 // Price formats and formatting. formatPrice and formatDecimal are public, for prices shown in a format of the user's
 // choosing; an instrument formats in its own format with instrument.formatPrice.
 
+/**
+ * How an instrument's prices are written: a fixed number of decimals, or a fraction such as 32nds. An instrument's
+ * comes from its definition (`instrument.priceFormat`); {@link formatPrice} takes one you choose.
+ */
 export interface PriceFormat {
+    /** Decimal notation with this many decimals. Takes precedence over `fraction`. */
     numDecimals?: number;
+    /**
+     * What the instrument's prices are multiplied by when the SDK reads them from the feed. Formatting doesn't use it:
+     * the prices it formats are already scaled.
+     */
     priceScaling: number;
 
+    /** Fractional notation, `112-16` for 112 and 16/32. */
     fraction?: {
+        /** The fraction's unit: 32 for 32nds. */
         denominator: number;
+        /**
+         * Parts of each unit, written as one more digit: 2 for half 32nds, so 112 and 16.5/32 is `112-165`. 1 for
+         * none.
+         */
         subdenominator: number;
     };
 }
@@ -52,9 +67,10 @@ export const formatDecimal = (value: string, thousandsSeparator = ",", decimalSe
  *
  * @example
  * ```ts
- * formatPrice(1234.5, { numDecimals: 2, priceScaling: 100 }); // "1,234.50"
+ * formatPrice(1234.5, { numDecimals: 2, priceScaling: 1 }); // "1,234.50"
  * formatPrice(112.5, { fraction: { denominator: 32, subdenominator: 1 }, priceScaling: 1 }); // "112-16"
- * formatPrice(null, { numDecimals: 2, priceScaling: 100 }); // ""
+ * formatPrice(112.515625, { fraction: { denominator: 32, subdenominator: 2 }, priceScaling: 1 }); // "112-165"
+ * formatPrice(null, { numDecimals: 2, priceScaling: 1 }); // ""
  * ```
  */
 export const formatPrice = (price: number | null | undefined, format: PriceFormat) => {
