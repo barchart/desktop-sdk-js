@@ -6,26 +6,55 @@ import type { SdkLogger } from "./types";
 /** `native`: the instrument's own notation (fractional for 32nds, say: "112-16"); `decimal`: "112.50000". */
 export type PriceNotation = "native" | "decimal";
 
+/**
+ * An instrument, from its Openfeed definition: what it is, where it trades, and how its prices are read and written.
+ * Every event carries one, and `sdk.getInstrument` returns it.
+ */
 export interface Instrument {
+    /** Openfeed's id for the market, as a string. */
     readonly marketId: string;
+    /** The instrument's own symbol. For a subscription to an alias such as `ZC*1`, the contract it stands for. */
     readonly symbol: string;
+    /** A human-readable description of the market. */
     readonly description: string;
     readonly instrumentType: InstrumentDefinition_InstrumentType;
+    /** The exchange's ISO 10383 market identifier code (MIC). */
     readonly exchangeCode: string;
+    /** The exchange's time zone, as a tz database name such as `America/Chicago`. */
     readonly timeZoneName: string;
+    /** How many price levels each side of the order book has. */
     readonly bookDepth: number;
+    /** The smallest price change, in the market's currency. */
     readonly minimumPriceIncrement: number;
+    /** How the instrument's prices are written, which `formatPrice` and `parsePrice` use. */
     readonly priceFormat: PriceFormat;
+    /** The Openfeed definition everything else here comes from, with the fields the SDK doesn't model. */
     readonly definition: InstrumentDefinition;
 
-    /** A protocol price, scaled; null when the message has none. */
+    /** Converts a price from an Openfeed message to a number; `null` when the message has none. */
     price(raw: Long): number;
+    /** Converts a price from an Openfeed message to a number; `null` when the message has none. */
     price(raw: Long | undefined): number | null;
-    /** A protocol quantity, scaled; null when the message has none. */
+    /** Converts a quantity from an Openfeed message to a number; `null` when the message has none. */
     quantity(raw: Long): number;
+    /** Converts a quantity from an Openfeed message to a number; `null` when the message has none. */
     quantity(raw: Long | undefined): number | null;
-    /** In the native notation unless asked for `decimal`; "" for no price. */
+    /**
+     * Formats a price in the instrument's own format.
+     *
+     * @param price - The price; `null` and `undefined` give `""`.
+     * @param notation - `native` (the default) for the instrument's own notation, such as `"112-16"`, or `decimal` for
+     * `"112.50000"`.
+     * @returns The formatted price.
+     */
     formatPrice(price: number | null | undefined, notation?: PriceNotation): string;
+    /**
+     * Reads a price written in the instrument's own format, the reverse of `formatPrice`. Commas as thousands separators
+     * are allowed.
+     *
+     * @param text - The price as text, such as `"112-16"` or `"1,234.50"`.
+     * @returns The price; `undefined` for empty text, and `NaN` for text that isn't a price.
+     */
     parsePrice(text: string): number | undefined;
 }
 
