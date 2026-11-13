@@ -15,7 +15,8 @@
 ## Docs
 
 - [README](https://raw.githubusercontent.com/barchart/desktop-sdk-js/main/README.md): the introduction, with installing, connecting, subscribing, reading state and formatting.
-- [Reference](https://raw.githubusercontent.com/barchart/desktop-sdk-js/main/docs/reference.md): every public method and type, and the delivery guarantees.
+- [Reference](https://raw.githubusercontent.com/barchart/desktop-sdk-js/main/docs/reference.md): every public method, how it behaves, and the delivery guarantees.
+- [API reference](https://raw.githubusercontent.com/barchart/desktop-sdk-js/main/docs/api/README.md): every type, field and parameter, generated from the code, one page each. In an installed package, `node_modules/@barchart/desktop-sdk-js/docs/api/`.
 
 ## Examples
 

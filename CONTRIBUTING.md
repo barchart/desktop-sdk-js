@@ -5,8 +5,20 @@
 ```sh
 corepack enable      # once per machine: Yarn's version comes from packageManager in package.json
 yarn install
-yarn check           # everything CI runs: typecheck, lint, format, tests, build, package checks
+yarn check           # everything CI runs: typecheck, lint, format, tests, API docs, build, package checks
 ```
+
+## API documentation
+
+Every public export and member needs a TSDoc comment (`/** … */`): users read it on hover, and it becomes the [API reference](docs/api/README.md). Write it for people using the SDK, with `@param`, `@returns` and, for the main methods, an `@example`.
+
+`docs/api/` is generated from those comments by TypeDoc (`typedoc.json`). Don't edit it by hand. After changing the public API or a doc comment, regenerate it and commit it with the change:
+
+```sh
+yarn docs:api
+```
+
+`yarn check` (in CI too) fails when a public item has no comment, a `{@link}` is broken, or `docs/api/` doesn't match the comments; it names the item or the files. Staging the regenerated `docs/api/` is enough for it to pass locally.
 
 Commit messages are [conventional commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `chore:`…; `feat!:` or a `BREAKING CHANGE:` footer for a breaking change). They set the next version and become the changelog, so write them for the SDK's users.
 

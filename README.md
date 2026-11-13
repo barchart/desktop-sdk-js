@@ -146,7 +146,8 @@ A listener can also take its subscription's raw messages with `onMessage`, next 
 
 ## Documentation
 
-- [Reference](docs/reference.md): every public method, the shapes they return, and the delivery guarantees.
+- [Reference](docs/reference.md): every public method, how it behaves, and the delivery guarantees.
+- [API reference](docs/api/README.md): every type, field and parameter, generated from the code. Your editor shows the same descriptions on hover.
 - [Examples](examples/): short programs, one task each.
 - [Changelog](CHANGELOG.md): what changed in each release.
 - [Design](docs/design.md): how the SDK works inside, for contributors and for ports to other languages.

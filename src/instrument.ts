@@ -53,6 +53,10 @@ export interface Instrument {
      * Reads a price written in the instrument's own format, the reverse of `formatPrice`. Commas as thousands separators
      * are allowed.
      *
+     * A fraction with a subdenominator ends in one digit for the part of the unit, as `formatPrice` writes it: in
+     * quarter 32nds, `"104-002"` is 104 and ¼ of a 32nd. So formatted prices parse back exactly. A last digit
+     * `formatPrice` never writes reads as tenths.
+     *
      * @param text - The price as text, such as `"112-16"` or `"1,234.50"`.
      * @returns The price; `undefined` for empty text, and `NaN` for text that isn't a price.
      */

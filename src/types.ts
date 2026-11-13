@@ -81,7 +81,13 @@ const getErrorMessage = (
 
 /**
  * A subscription the server refused. `message` says what was refused and ends with the server's own text, which is
- * kept as it came in `serverMessage`. Code should decide on `result`, the proto's own Result value.
+ * kept as it came in `serverMessage`. The message is for reading; code should decide on `result`, Openfeed's
+ * `Result` value.
+ *
+ * @example
+ * ```ts
+ * error.message; // 'INSUFFICIENT_PRIVILEGES: DEPTH_PRICE on ESZ26 (REAL_TIME) was refused. Server said: "…"'
+ * ```
  */
 export class SubscriptionError extends Error {
     /** Created by the SDK, which passes it to `onError`; an application has no need to create one. */
@@ -96,7 +102,10 @@ export class SubscriptionError extends Error {
         readonly service: Service,
         /** The server's own text, as it came; empty if it sent none. */
         readonly serverMessage: string,
-        /** Set when the refused subscription is one that the subscriber's own type depends on. */
+        /**
+         * Set when the refused subscription is one that the subscriber's own type depends on: on a cumulative volume
+         * subscriber's error, `CUMULATIVE_VOLUME`, with `type` being the `ALL` it holds. Otherwise `undefined`.
+         */
         readonly requiredBy?: SubscriptionType
     ) {
         super(getErrorMessage(result, symbol, type, service, serverMessage, requiredBy));
