@@ -5,6 +5,7 @@ import type { SdkLogger } from "../types";
 
 /** One level of an order book. An empty level has price and size 0. */
 export interface PriceLevel {
+    /** The level's price. */
     readonly price: number;
     /** The quantity at this price. */
     readonly size: number;

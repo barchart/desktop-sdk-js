@@ -17,6 +17,7 @@ export interface Instrument {
     readonly symbol: string;
     /** A human-readable description of the market. */
     readonly description: string;
+    /** What kind of instrument it is, such as a future, an option or an equity. */
     readonly instrumentType: InstrumentDefinition_InstrumentType;
     /** The exchange's ISO 10383 market identifier code (MIC). */
     readonly exchangeCode: string;

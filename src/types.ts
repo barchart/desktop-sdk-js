@@ -27,14 +27,19 @@ export type ConnectionState = "logged-out" | "connecting" | "connected" | "disco
 export interface Credentials {
     /** The Openfeed server's WebSocket URL, such as `ws://localhost:9000` for the Barchart Desktop API. */
     readonly url: string;
+    /** The username to log in with. */
     readonly username: string;
+    /** The password to log in with. */
     readonly password: string;
 }
 
 /** Where the SDK and the Openfeed client log. `console` is one. */
 export interface SdkLogger {
+    /** Routine messages, such as the subscriptions sent at login. */
     log(...data: unknown[]): void;
+    /** Something unexpected that the SDK handled, such as an unknown price format. */
     warn(...data: unknown[]): void;
+    /** A failure, such as a message the SDK couldn't apply. */
     error(...data: unknown[]): void;
 }
 
@@ -79,6 +84,7 @@ const getErrorMessage = (
  * kept as it came in `serverMessage`. Code should decide on `result`, the proto's own Result value.
  */
 export class SubscriptionError extends Error {
+    /** Created by the SDK, which passes it to `onError`; an application has no need to create one. */
     constructor(
         /** Openfeed's result code for the refusal. Decide on this, not on the message's text. */
         readonly result: Result,
@@ -188,6 +194,7 @@ export interface CumulativeVolumeEvent extends EventBase {
 
 /** The volume traded at one price. */
 export interface PriceVolume {
+    /** The price traded at. */
     readonly price: number;
     /** The total traded at `price` so far. */
     readonly volume: number;
@@ -206,10 +213,13 @@ export interface LastMessages {
  * one.
  */
 export interface SubscriptionInfo {
+    /** The Openfeed service it was made on. */
     readonly service: Service;
+    /** The Openfeed subscription type, such as `ALL` for quotes. */
     readonly type: SubscriptionType;
     /** The symbol as subscribed. */
     readonly symbol: string;
+    /** Where it stands: `pending`, `active` or `error`. */
     readonly state: Exclude<SubscriptionState, "closed">;
     /** How many subscriptions share it. */
     readonly subscribers: number;
@@ -223,6 +233,7 @@ export interface SubscriptionInfo {
 export interface SnapshotMessage {
     /** The instrument's definition, if the server sent one. */
     readonly instrumentDefinition: InstrumentDefinition | undefined;
+    /** The snapshot: the market's state when the server sent it. */
     readonly marketSnapshot: MarketSnapshot;
 }
 

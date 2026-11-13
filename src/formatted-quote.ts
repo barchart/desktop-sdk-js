@@ -35,6 +35,7 @@ export interface FormattedQuote {
     readonly session: FormattedSession;
     /** The session before it. */
     readonly previousSession: FormattedSession;
+    /** The best bid and offer. */
     readonly bestBidOffer: FormattedBestBidOffer;
 }
 

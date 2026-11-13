@@ -107,7 +107,9 @@ export interface QuoteRecord {
     readonly session: SessionRecord;
     /** The session before it; every field `null` until the feed sends it. */
     readonly previousSession: SessionRecord;
+    /** The best bid and offer. */
     readonly bestBidOffer: BestBidOfferRecord;
+    /** The trading status. */
     readonly status: StatusRecord;
 }
 
