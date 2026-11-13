@@ -1,7 +1,15 @@
 // Internal: subscriptions as desired state, reconciled with the wire per login (docs/design.md, "The registry").
 // Only the subscription loop (DesktopSdk#process) calls acquire and remove. acquire sends a new entry when logged
 // in; remove at 0 unsubscribes and deletes at once. Not exported from index.ts.
-import { type IOpenFeedClient, type OpenfeedGatewayMessage, Result, Service, type SubscriptionResponse, SubscriptionType } from "@openfeed/sdk-js";
+import {
+    type InstrumentDefinition,
+    type IOpenFeedClient,
+    type OpenfeedGatewayMessage,
+    Result,
+    Service,
+    type SubscriptionResponse,
+    SubscriptionType,
+} from "@openfeed/sdk-js";
 import type Long from "long";
 import { getDependentError, getMessageSubscribers, subscriptionKey, type Subscriber } from "./subscriber";
 import { type SdkLogger, SubscriptionError, type SubscriptionState } from "./types";
@@ -82,6 +90,12 @@ export class Registry {
     readonly #entriesBySymbol = new Map<string, Set<OwnEntry>>();
     /** Entries by the markets they named; kept in step with each entry's `markets` (#name, #unname). */
     readonly #entriesByMarket = new Map<string, Set<OwnEntry>>();
+    /**
+     * A named market's definition symbol (ESZ6), both ways: how a root subscription's instruments, which have no
+     * subscribed name, are found. Kept while an entry names the market (#deleteDefinitionSymbol).
+     */
+    readonly #marketsByDefinitionSymbol = new Map<string, string>();
+    readonly #definitionSymbolsByMarket = new Map<string, string>();
     #client: IOpenFeedClient | undefined;
 
     constructor(private readonly log: SdkLogger) {}
@@ -100,7 +114,12 @@ export class Registry {
      */
     getMarketId(symbol: string): string | undefined {
         const named = [...(this.#entriesBySymbol.get(symbol) ?? [])].filter(keepsState).flatMap((entry) => [...entry.markets]);
-        return named.at(-1);
+        return named.at(-1) ?? this.#marketsByDefinitionSymbol.get(symbol);
+    }
+
+    /** A definition: for a market an entry names, its symbol finds the market from now on; any other is ignored. */
+    onDefinition(definition: InstrumentDefinition) {
+        this.#setDefinitionSymbol(definition.marketId.toString(), definition.symbol);
     }
 
     /** The subscribed symbols that link to the market: those of the state-keeping entries that named it. */
@@ -167,6 +186,8 @@ export class Registry {
             entry.markets.clear();
         }
         this.#entriesByMarket.clear();
+        this.#marketsByDefinitionSymbol.clear();
+        this.#definitionSymbolsByMarket.clear();
     }
 
     /** Dispose: every subscriber is closed and every entry removed, without unsubscribing. */
@@ -181,6 +202,8 @@ export class Registry {
         this.#entries.clear();
         this.#entriesBySymbol.clear();
         this.#entriesByMarket.clear();
+        this.#marketsByDefinitionSymbol.clear();
+        this.#definitionSymbolsByMarket.clear();
     }
 
     /** Matches a response to its entries by symbol and type (the client's ids aren't on the wire). */
@@ -243,9 +266,13 @@ export class Registry {
 
     /** `instrumentAction` EXCHANGE_MOVE: entries that named the instrument name its new marketId. */
     moved(from: string, to: string) {
+        const symbol = this.#definitionSymbolsByMarket.get(from);
         for (const entry of [...(this.#entriesByMarket.get(from) ?? [])]) {
             this.#unname(entry, from);
             this.#name(entry, to);
+        }
+        if (symbol !== undefined) {
+            this.#setDefinitionSymbol(to, symbol);
         }
     }
 
@@ -262,9 +289,36 @@ export class Registry {
 
     #unname(entry: OwnEntry, marketId: string) {
         entry.markets.delete(marketId);
+        this.#leaveMarket(entry, marketId);
+    }
+
+    /** The entry leaves the market index; the last one to leave takes the market's definition symbol with it. */
+    #leaveMarket(entry: OwnEntry, marketId: string) {
         const entries = this.#entriesByMarket.get(marketId);
         if (entries?.delete(entry) && entries.size === 0) {
             this.#entriesByMarket.delete(marketId);
+            this.#deleteDefinitionSymbol(marketId);
+        }
+    }
+
+    #setDefinitionSymbol(marketId: string, symbol: string) {
+        if (!this.hasId(marketId) || symbol === "") {
+            return;
+        }
+        this.#deleteDefinitionSymbol(marketId);
+        this.#marketsByDefinitionSymbol.set(symbol, marketId);
+        this.#definitionSymbolsByMarket.set(marketId, symbol);
+    }
+
+    #deleteDefinitionSymbol(marketId: string) {
+        const symbol = this.#definitionSymbolsByMarket.get(marketId);
+        if (symbol === undefined) {
+            return;
+        }
+        this.#definitionSymbolsByMarket.delete(marketId);
+        // another market's definition may have taken the symbol since
+        if (this.#marketsByDefinitionSymbol.get(symbol) === marketId) {
+            this.#marketsByDefinitionSymbol.delete(symbol);
         }
     }
 
@@ -320,10 +374,7 @@ export class Registry {
         }
         // out of the market index; `entry.markets` stays, so the caller can see what the removed entry named
         for (const marketId of entry.markets) {
-            const entries = this.#entriesByMarket.get(marketId);
-            if (entries?.delete(entry) && entries.size === 0) {
-                this.#entriesByMarket.delete(marketId);
-            }
+            this.#leaveMarket(entry, marketId);
         }
         removed.push(entry);
         if (this.#client && entry.clientId) {

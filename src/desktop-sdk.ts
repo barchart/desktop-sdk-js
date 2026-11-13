@@ -172,6 +172,8 @@ export class DesktopSdk {
     readonly #heartbeatListeners = new Set<HeartbeatListener>();
     readonly #rawListeners = new Set<(message: OpenfeedGatewayMessage, metadata: MessageMetadata) => void>();
     readonly #removedListeners = new Set<(symbol: string) => void>();
+    /** The store's instruments → their copies per name (#getNamed). */
+    readonly #named = new WeakMap<Instrument, Map<string, Instrument>>();
     #waiters: Waiter[] = [];
     /** `raw.requestSnapshot` calls still waiting for their snapshot. */
     readonly #snapshotRequests = new Set<ResolutionSource<SnapshotMessage>>();
@@ -395,10 +397,11 @@ export class DesktopSdk {
 
     /**
      * Whether a subscription currently holds the symbol's instrument, including a raw subscription whose responses
-     * named it. The SDK may still have state for a symbol that isn't subscribed, so `getQuote` can answer when this is
-     * `false`.
+     * named it, such as a root subscription (`ZC^UDS`) with its instruments. The `get…` methods answer only while this
+     * is `true`.
      *
-     * @param symbol - A subscribed symbol (an alias included) or the instrument's own symbol.
+     * @param symbol - A subscribed symbol (an alias included), or the definition symbol of an instrument a
+     * subscription holds.
      */
     isSubscribed(symbol: string): boolean {
         const marketId = this.#marketIdOf(symbol);
@@ -512,24 +515,29 @@ export class DesktopSdk {
 
     // ---- state ----
 
-    // A symbol is a subscribed name (aliases included) or an instrument's own symbol (#marketIdOf).
+    // A symbol is a subscribed name (aliases included) or the definition symbol of a market a subscription holds
+    // (#marketIdOf).
 
     /**
-     * The instrument's definition: its symbol, description, exchange, price format and more.
+     * The instrument's definition: its description, exchange, price format and more. Its `symbol` is the one passed
+     * here, so `getInstrument("ES*1").symbol` is `ES*1`; the contract's own is `definition.symbol`.
      *
-     * @param symbol - A subscribed symbol (an alias included) or the instrument's own symbol.
-     * @returns The instrument, frozen; `undefined` until the SDK has its definition.
+     * @param symbol - A subscribed symbol (an alias included), or the definition symbol of an instrument a
+     * subscription holds.
+     * @returns The instrument, frozen; `undefined` until the SDK has its definition, or when no subscription holds it.
      */
     getInstrument(symbol: string): Instrument | undefined {
-        return this.#store.getInstrumentById(this.#marketIdOf(symbol));
+        const instrument = this.#store.getInstrumentById(this.#marketIdOf(symbol));
+        return instrument && this.#getNamed(instrument, symbol);
     }
 
     /**
      * The current quote, as the last quote event delivered it. For the same values as strings, use
      * {@link DesktopSdk.getFormattedQuote}.
      *
-     * @param symbol - A subscribed symbol (an alias included) or the instrument's own symbol.
-     * @returns The quote, frozen; `undefined` until the SDK has one.
+     * @param symbol - A subscribed symbol (an alias included), or the definition symbol of an instrument a
+     * subscription holds.
+     * @returns The quote, frozen; `undefined` until the SDK has one, or when no subscription holds it.
      */
     getQuote(symbol: string): QuoteRecord | undefined {
         return this.#store.getQuoteById(this.#marketIdOf(symbol));
@@ -538,8 +546,9 @@ export class DesktopSdk {
     /**
      * The current quote as strings in the instrument's price format, as a quote event's `formatted` carries them.
      *
-     * @param symbol - A subscribed symbol (an alias included) or the instrument's own symbol.
-     * @returns The formatted quote; `undefined` until the SDK has a quote.
+     * @param symbol - A subscribed symbol (an alias included), or the definition symbol of an instrument a
+     * subscription holds.
+     * @returns The formatted quote; `undefined` until the SDK has a quote, or when no subscription holds it.
      */
     getFormattedQuote(symbol: string): FormattedQuote | undefined {
         const marketId = this.#marketIdOf(symbol);
@@ -552,8 +561,9 @@ export class DesktopSdk {
      * The current order book, as the last book event delivered it. Each side has the instrument's `bookDepth` levels,
      * best price first; an empty level has price and size 0.
      *
-     * @param symbol - A subscribed symbol (an alias included) or the instrument's own symbol.
-     * @returns The book, frozen; `undefined` until the SDK has one.
+     * @param symbol - A subscribed symbol (an alias included), or the definition symbol of an instrument a
+     * subscription holds.
+     * @returns The book, frozen; `undefined` until the SDK has one, or when no subscription holds it.
      */
     getBook(symbol: string): Book | undefined {
         return this.#store.getBookById(this.#marketIdOf(symbol));
@@ -562,8 +572,10 @@ export class DesktopSdk {
     /**
      * The volume traded at each price, as the last cumulative volume event delivered it.
      *
-     * @param symbol - A subscribed symbol (an alias included) or the instrument's own symbol.
-     * @returns The levels, ascending by price and frozen; `undefined` until a snapshot brings volume at price.
+     * @param symbol - A subscribed symbol (an alias included), or the definition symbol of an instrument a
+     * subscription holds.
+     * @returns The levels, ascending by price and frozen; `undefined` until a snapshot brings volume at price, or when no
+     * subscription holds it.
      */
     getCumulativeVolume(symbol: string): readonly PriceVolume[] | undefined {
         return this.#store.getCumulativeVolumeById(this.#marketIdOf(symbol));
@@ -679,8 +691,8 @@ export class DesktopSdk {
                 removedEntries.push(removed);
                 maybeRemoved.add(removed.symbol);
                 for (const marketId of removed.markets) {
-                    // before its state may go
-                    const own = this.#store.getInstrumentById(marketId)?.symbol;
+                    // its definition symbol, read before its state may go (the registry let go of it with the market's last entry)
+                    const own = this.#store.getInstrumentById(marketId)?.definition.symbol;
                     if (own !== undefined) {
                         maybeRemoved.add(own);
                     }
@@ -719,9 +731,27 @@ export class DesktopSdk {
         return this.#registry.remove(entry);
     }
 
-    /** A subscribed symbol's market (the registry's), else the market whose definition has that symbol (the store's). */
+    /** The market a subscribed symbol names, or a named market's definition symbol (a root subscription's instrument). */
     #marketIdOf(symbol: string): string | undefined {
-        return this.#registry.getMarketId(symbol) ?? this.#store.getMarketId(symbol);
+        return this.#registry.getMarketId(symbol);
+    }
+
+    /**
+     * The instrument as `symbol` reaches it: the store's, with `symbol` set to that name. One per name and instrument,
+     * so a name's events share it; a new definition makes a new instrument, and so new copies.
+     */
+    #getNamed(instrument: Instrument, symbol: string): Instrument {
+        let byName = this.#named.get(instrument);
+        if (byName === undefined) {
+            byName = new Map();
+            this.#named.set(instrument, byName);
+        }
+        let named = byName.get(symbol);
+        if (named === undefined) {
+            named = Object.freeze({ ...instrument, symbol });
+            byName.set(symbol, named);
+        }
+        return named;
     }
 
     /**
@@ -756,7 +786,7 @@ export class DesktopSdk {
         if (!instrument || !raw) {
             return;
         }
-        const base: EventBase = { symbol: entry.symbol, instrument, kind: "initial", raw };
+        const base: EventBase = { symbol: entry.symbol, instrument: this.#getNamed(instrument, entry.symbol), kind: "initial", raw };
         emitTo(subscriber, base, this.#store.getStatePartsById(marketId));
     }
 
@@ -773,13 +803,17 @@ export class DesktopSdk {
             }
             this.#onInstrumentAction(message.instrumentAction);
         } else {
-            const change = this.#store.apply(message);
-            if (change) {
-                this.#deliverOrHold(change, message);
-            }
-
             const marketId = getMessageMarketId(message);
-            if (marketId !== undefined) {
+            // only a market a subscription named has state; anything else (raw.send's, or one still arriving after
+            // its subscription closed) reaches the raw listeners only
+            if (marketId !== undefined && this.#registry.hasId(marketId)) {
+                if (message.instrumentDefinition) {
+                    this.#registry.onDefinition(message.instrumentDefinition);
+                }
+                const change = this.#store.apply(message);
+                if (change) {
+                    this.#deliverOrHold(change, message);
+                }
                 deliverRaw(this.#registry.getMessageSubscribersById(marketId), message, metadata);
             }
         }
@@ -858,7 +892,7 @@ export class DesktopSdk {
 
         for (const symbol of this.#registry.getSymbolsById(change.marketId)) {
             for (const entry of this.#registry.getEntries(symbol)) {
-                const base: EventBase = { symbol: entry.symbol, instrument, kind: change.kind, raw };
+                const base: EventBase = { symbol: entry.symbol, instrument: this.#getNamed(instrument, entry.symbol), kind: change.kind, raw };
                 for (const subscriber of [...entry.subscribers]) {
                     emitTo(subscriber, base, change.parts);
                 }

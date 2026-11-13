@@ -205,8 +205,8 @@ A function that removes the listener.
 > **isSubscribed**(`symbol`): `boolean`
 
 Whether a subscription currently holds the symbol's instrument, including a raw subscription whose responses
-named it. The SDK may still have state for a symbol that isn't subscribed, so `getQuote` can answer when this is
-`false`.
+named it, such as a root subscription (`ZC^UDS`) with its instruments. The `get…` methods answer only while this
+is `true`.
 
 #### Parameters
 
@@ -214,7 +214,8 @@ named it. The SDK may still have state for a symbol that isn't subscribed, so `g
 
 `string`
 
-A subscribed symbol (an alias included) or the instrument's own symbol.
+A subscribed symbol (an alias included), or the definition symbol of an instrument a
+subscription holds.
 
 #### Returns
 
@@ -404,7 +405,8 @@ const subscription = sdk.subscribeCumulativeVolume("ESZ26", {
 
 > **getInstrument**(`symbol`): [`Instrument`](../interfaces/Instrument.md) \| `undefined`
 
-The instrument's definition: its symbol, description, exchange, price format and more.
+The instrument's definition: its description, exchange, price format and more. Its `symbol` is the one passed
+here, so `getInstrument("ES*1").symbol` is `ES*1`; the contract's own is `definition.symbol`.
 
 #### Parameters
 
@@ -412,13 +414,14 @@ The instrument's definition: its symbol, description, exchange, price format and
 
 `string`
 
-A subscribed symbol (an alias included) or the instrument's own symbol.
+A subscribed symbol (an alias included), or the definition symbol of an instrument a
+subscription holds.
 
 #### Returns
 
 [`Instrument`](../interfaces/Instrument.md) \| `undefined`
 
-The instrument, frozen; `undefined` until the SDK has its definition.
+The instrument, frozen; `undefined` until the SDK has its definition, or when no subscription holds it.
 
 ***
 
@@ -435,13 +438,14 @@ The current quote, as the last quote event delivered it. For the same values as 
 
 `string`
 
-A subscribed symbol (an alias included) or the instrument's own symbol.
+A subscribed symbol (an alias included), or the definition symbol of an instrument a
+subscription holds.
 
 #### Returns
 
 [`QuoteRecord`](../interfaces/QuoteRecord.md) \| `undefined`
 
-The quote, frozen; `undefined` until the SDK has one.
+The quote, frozen; `undefined` until the SDK has one, or when no subscription holds it.
 
 ***
 
@@ -457,13 +461,14 @@ The current quote as strings in the instrument's price format, as a quote event'
 
 `string`
 
-A subscribed symbol (an alias included) or the instrument's own symbol.
+A subscribed symbol (an alias included), or the definition symbol of an instrument a
+subscription holds.
 
 #### Returns
 
 [`FormattedQuote`](../interfaces/FormattedQuote.md) \| `undefined`
 
-The formatted quote; `undefined` until the SDK has a quote.
+The formatted quote; `undefined` until the SDK has a quote, or when no subscription holds it.
 
 ***
 
@@ -480,13 +485,14 @@ best price first; an empty level has price and size 0.
 
 `string`
 
-A subscribed symbol (an alias included) or the instrument's own symbol.
+A subscribed symbol (an alias included), or the definition symbol of an instrument a
+subscription holds.
 
 #### Returns
 
 [`Book`](../interfaces/Book.md) \| `undefined`
 
-The book, frozen; `undefined` until the SDK has one.
+The book, frozen; `undefined` until the SDK has one, or when no subscription holds it.
 
 ***
 
@@ -502,10 +508,12 @@ The volume traded at each price, as the last cumulative volume event delivered i
 
 `string`
 
-A subscribed symbol (an alias included) or the instrument's own symbol.
+A subscribed symbol (an alias included), or the definition symbol of an instrument a
+subscription holds.
 
 #### Returns
 
 readonly [`PriceVolume`](../interfaces/PriceVolume.md)[] \| `undefined`
 
-The levels, ascending by price and frozen; `undefined` until a snapshot brings volume at price.
+The levels, ascending by price and frozen; `undefined` until a snapshot brings volume at price, or when no
+subscription holds it.

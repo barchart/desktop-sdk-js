@@ -58,7 +58,7 @@ Each returns a `Subscription` (§7) at once, in state `pending`.
 
 ## 3. State
 
-The current state for a symbol, as the last event delivered it; `undefined` until the SDK has it. Everything returned is frozen.
+The current state for a symbol, as the last event delivered it; `undefined` until the SDK has it. Everything returned is frozen. The symbol is one you subscribed to, an alias included, or the definition symbol of an instrument a root subscription (`ZC^UDS`) brought in, while it's open.
 
 | Method | Returns |
 |---|---|
@@ -77,7 +77,7 @@ The current state for a symbol, as the last event delivered it; `undefined` unti
 | `subscribe(symbol, type, listener?, service?)` | Any Openfeed subscription, without SDK state or events. The listener (`{ onMessage, onError? }`) gets the subscription's responses and every message for the instruments they named. `service` defaults to `REAL_TIME`. Returns a `Subscription`. |
 | `requestSnapshot(symbol, service?)` | One snapshot: resolves with `{ instrumentDefinition, marketSnapshot }`, then closes. `service` defaults to `REAL_TIME_SNAPSHOT`. Rejects if the subscription fails or the SDK is disposed. |
 | `onMessage(listener)` | Every incoming message, with its metadata (the client's symbol names and the instrument definition), after the SDK and its subscribers have handled it. |
-| `send(request, correlationId?)` | Sends an `OpenfeedRequest`. Returns the correlation id, or `undefined` when not connected. Responses arrive through `onMessage`. |
+| `send(request, correlationId?)` | Sends an `OpenfeedRequest`. Returns the correlation id, or `undefined` when not connected. Responses arrive through `onMessage`; the SDK keeps no state for what it brings. |
 | `lookupInstruments(request)` | An instrument lookup: an `OpenFeedInstrumentRequest` in, `InstrumentDefinition[]` out. Waits for the connection. The request is sent as given, so it needs its `instrumentType` and `spreadType` lists, empty when unused. Rejects with an `InstrumentLookupError` (from `@openfeed/sdk-js`, with the server's `result` and `serverMessage`) if the server refuses it or finds nothing, and with an error if the connection drops first. |
 
 ## 5. Diagnostics
@@ -101,7 +101,7 @@ The current state for a symbol, as the last event delivered it; `undefined` unti
 
 Every type, with each field and method, is in the [API reference](api/README.md), generated from the code. The rules that hold across them:
 
-- **Events** all have `symbol` (as subscribed; an alias stays the alias), `instrument`, `kind` (`initial`, `snapshot` or `update`) and `raw`, the message behind the event. `QuoteEvent` adds `quote` and `formatted`, `BookEvent` adds `book`, and `CumulativeVolumeEvent` adds `levels` and `changed`.
+- **Events** all have `symbol` (as subscribed; an alias stays the alias), `instrument` (whose `symbol` is that same name; the contract's own is `instrument.definition.symbol`), `kind` (`initial`, `snapshot` or `update`) and `raw`, the message behind the event. `QuoteEvent` adds `quote` and `formatted`, `BookEvent` adds `book`, and `CumulativeVolumeEvent` adds `levels` and `changed`.
 - **Prices and quantities** are numbers, scaled to their real values. `null` means the feed hasn't sent the field.
 - **Everything returned is frozen.** A quote's group (`session`, `previousSession`, `bestBidOffer`, `status`) is a new object only when a message changed it, so an unchanged group can be told by identity. `…Time` fields are `Date`s, whose setters work even when frozen: treat them as read-only too.
 - **Dates:** `…Time` fields are when something happened, as a `Date`; `…TradeDate` fields and `tradeDate` are the session it belongs to, as a `TradeDate`, which has no time or time zone.

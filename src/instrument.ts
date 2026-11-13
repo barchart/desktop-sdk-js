@@ -13,7 +13,10 @@ export type PriceNotation = "native" | "decimal";
 export interface Instrument {
     /** Openfeed's id for the market, as a string. */
     readonly marketId: string;
-    /** The instrument's own symbol. For a subscription to an alias such as `ZC*1`, the contract it stands for. */
+    /**
+     * The symbol it was subscribed with, as the event's `symbol`, or the one passed to `sdk.getInstrument`: for
+     * `ES*1`, it's `ES*1`. The definition's own symbol, which can be the exchange's (`ESZ6`), is `definition.symbol`.
+     */
     readonly symbol: string;
     /** A human-readable description of the market. */
     readonly description: string;

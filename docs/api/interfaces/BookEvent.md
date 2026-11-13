@@ -30,7 +30,7 @@ The symbol as subscribed, an alias such as `ZC*1` included.
 
 > `readonly` **instrument**: [`Instrument`](Instrument.md)
 
-The instrument the symbol stands for; after an alias rolls, the new contract.
+The instrument the symbol stands for, with `symbol` set to it; after an alias rolls, the new contract.
 
 #### Inherited from
 

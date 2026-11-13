@@ -165,7 +165,7 @@ export type EventKind = "initial" | "snapshot" | "update";
 export interface EventBase {
     /** The symbol as subscribed, an alias such as `ZC*1` included. */
     readonly symbol: string;
-    /** The instrument the symbol stands for; after an alias rolls, the new contract. */
+    /** The instrument the symbol stands for, with `symbol` set to it; after an alias rolls, the new contract. */
     readonly instrument: Instrument;
     /** Why the event came: the current state for a new subscriber, or a message just applied. */
     readonly kind: EventKind;
