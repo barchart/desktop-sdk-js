@@ -51,12 +51,11 @@
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "docs:api": "typedoc",
-        "check:docs": "typedoc && (git diff --quiet -- docs/api && test -z \"$(git ls-files --others --exclude-standard docs/api)\" || (echo \"docs/api is out of date. Run yarn docs:api and commit docs/api. Changed files:\" && git status --short -- docs/api && exit 1))",
         "test": "vitest run",
         "test:watch": "vitest",
         "check:package": "publint && attw --pack . --profile esm-only",
         "check:esm": "node --input-type=module -e \"const sdk = await import('@barchart/desktop-sdk-js'); if (typeof sdk.DesktopSdk !== 'function') process.exit(1)\"",
-        "check": "yarn typecheck && yarn lint && yarn format:check && yarn test && yarn check:docs && yarn build && yarn check:package && yarn check:esm"
+        "check": "yarn typecheck && yarn lint && yarn format:check && yarn test && yarn docs:api && yarn build && yarn check:package && yarn check:esm"
     },
     "peerDependencies": {
         "@openfeed/sdk-js": "^1.8.1",

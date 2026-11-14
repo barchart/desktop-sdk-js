@@ -10,15 +10,15 @@ yarn check           # everything CI runs: typecheck, lint, format, tests, API d
 
 ## API documentation
 
-Every public export and member needs a TSDoc comment (`/** … */`): users read it on hover, and it becomes the [API reference](docs/api/README.md). Write it for people using the SDK, with `@param`, `@returns` and, for the main methods, an `@example`.
+Every public export and member needs a TSDoc comment (`/** … */`): users read it on hover, and it becomes the API reference that the npm package ships in `docs/api/`. Write it for people using the SDK, with `@param`, `@returns` and, for the main methods, an `@example`.
 
-`docs/api/` is generated from those comments by TypeDoc (`typedoc.json`). Don't edit it by hand. After changing the public API or a doc comment, regenerate it and commit it with the change:
+`docs/api/` is generated from those comments by TypeDoc (`typedoc.json`) and isn't committed (`.gitignore`): the release build generates it before packing. To read it locally:
 
 ```sh
 yarn docs:api
 ```
 
-`yarn check` (in CI too) fails when a public item has no comment, a `{@link}` is broken, or `docs/api/` doesn't match the comments; it names the item or the files. Staging the regenerated `docs/api/` is enough for it to pass locally.
+`yarn check` (in CI too) runs it, and fails when a public item has no comment or a `{@link}` is broken; it names the item.
 
 Commit messages are [conventional commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `chore:`…; `feat!:` or a `BREAKING CHANGE:` footer for a breaking change). They set the next version and become the changelog, so write them for the SDK's users.
 

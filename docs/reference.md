@@ -1,6 +1,6 @@
 # Reference
 
-The SDK's public methods, how they behave, and the delivery guarantees. The [API reference](api/README.md), generated from the code, has every type, field and parameter in detail. The [README](../README.md) is the introduction, and the [design](design.md) explains how the SDK works inside.
+The SDK's public methods, how they behave, and the delivery guarantees. Every type, field and parameter is described on hover in your editor, and in the API reference generated from the code, which the npm package ships in `docs/api/`. The [README](../README.md) is the introduction, and the [design](design.md) explains how the SDK works inside.
 
 Protocol names (services, subscription types, results, messages such as `OpenfeedGatewayMessage`) are Openfeed's. For what they mean and how the feed behaves, see the Openfeed documentation:
 
@@ -99,14 +99,96 @@ The current state for a symbol, as the last event delivered it; `undefined` unti
 
 ## 7. Types
 
-Every type, with each field and method, is in the [API reference](api/README.md), generated from the code. The rules that hold across them:
+The main types, in short. Every field's description is in your editor on hover, and the full API reference, generated from the code, is in the installed package: `node_modules/@barchart/desktop-sdk-js/docs/api/README.md`.
 
-- **Events** all have `symbol` (as subscribed; an alias stays the alias), `instrument` (whose `symbol` is that same name; the contract's own is `instrument.definition.symbol`), `kind` (`initial`, `snapshot` or `update`) and `raw`, the message behind the event. `QuoteEvent` adds `quote` and `formatted`, `BookEvent` adds `book`, and `CumulativeVolumeEvent` adds `levels` and `changed`.
-- **Prices and quantities** are numbers, scaled to their real values. `null` means the feed hasn't sent the field.
-- **Everything returned is frozen.** A quote's group (`session`, `previousSession`, `bestBidOffer`, `status`) is a new object only when a message changed it, so an unchanged group can be told by identity. `…Time` fields are `Date`s, whose setters work even when frozen: treat them as read-only too.
-- **Dates:** `…Time` fields are when something happened, as a `Date`; `…TradeDate` fields and `tradeDate` are the session it belongs to, as a `TradeDate`, which has no time or time zone.
-- **Formatted quotes** have a view per group, with the record's field names as strings: prices in the instrument's own notation, quantities with thousands separators, `""` for `null`. Each view's `decimal` has prices in decimal notation, and `values` has every field as a plain object. Fields are formatted when read.
-- **Order books** have `bookDepth` levels per side, best price first; an empty level is `{ price: 0, size: 0 }`. A level outside the book, in a snapshot or an update, is skipped and logged as an error.
+### Events
+
+Every event has:
+
+| Field | |
+|---|---|
+| `symbol` | The symbol subscribed to; an alias stays the alias. |
+| `instrument` | The `Instrument`; its `symbol` is the same name, and the contract's own is `instrument.definition.symbol`. |
+| `kind` | `initial` (the state delivered to a new subscriber), `snapshot` or `update` (a message was just applied). |
+| `raw` | The `OpenfeedGatewayMessage` behind it; for `initial`, the instrument's last snapshot. |
+
+| Event | Also has |
+|---|---|
+| `QuoteEvent` | `quote: QuoteRecord`, `formatted: FormattedQuote` |
+| `BookEvent` | `book: Book`, the whole book |
+| `CumulativeVolumeEvent` | `levels: PriceVolume[]`, every level ascending by price; `changed: PriceVolume[]`, the levels this message changed. On `initial` and `snapshot`, `changed` is every level, and levels not in it are gone. |
+
+### `Subscription`
+
+| Member | |
+|---|---|
+| `state` | `pending` until the server answers (and again after a logout), then `active` or `error`; `closed` after `close()`. |
+| `error` | The `SubscriptionError` while the state is `error`. |
+| `close()` | Ends the subscription. Idempotent; no callback arrives after it returns. |
+
+### `SubscriptionError`
+
+| Member | |
+|---|---|
+| `message` | What was refused, then the server's text: `INSUFFICIENT_PRIVILEGES: DEPTH_PRICE on ESZ26 (REAL_TIME) was refused. Server said: "…"`. For reading, not for matching. |
+| `result` | The server's answer, a `Result` from `@openfeed/sdk-js`. Decide in code on this. |
+| `symbol` | The symbol subscribed. |
+| `type` | The subscription refused, a `SubscriptionType`. |
+| `service` | The `Service` that subscription asked for. |
+| `serverMessage` | The server's text, as it came; empty if it sent none. |
+| `requiredBy` | Set on a cumulative volume subscriber's error when the refused subscription is the `ALL` it depends on: `CUMULATIVE_VOLUME`, with `type` being `ALL`. Otherwise `undefined`. |
+
+### `QuoteRecord`
+
+| Group | Type | Fields |
+|---|---|---|
+| `session` | `SessionRecord` | The current session. |
+| `previousSession` | `SessionRecord` | The previous session. |
+| `bestBidOffer` | `BestBidOfferRecord` | `bidPrice`, `bidSize`, `bidOrderCount`, `askPrice`, `askSize`, `askOrderCount` |
+| `status` | `StatusRecord` | `trading`, `prior` (trading status codes), `tradeDate`, `time` |
+
+`SessionRecord`: `tradeDate`; `open`, `high`, `low`; `close` with `closeTime` and `closeTradeDate`; `settle` with `settleTime`, `settleTradeDate` and `settlePreliminary`; `prevSettle` with `prevSettleTime` and `prevSettleTradeDate`; `last` with `lastTime`, `lastTradeDate` and `lastSize`; `lastTrade`; `volume`, `openInterest`, `numberOfTrades`.
+
+- Prices and quantities are numbers, scaled to their real values.
+- `null` means the feed hasn't sent the field.
+- A group is a new object only when it changed, so an unchanged group can be told by identity.
+- `…Time` fields are `Date`s; `…TradeDate` fields (and `tradeDate`) are `TradeDate`s. Treat the `Date`s as read-only, like the rest of the record.
+
+### `FormattedQuote`
+
+The quote as strings, with a view per group: `session`, `previousSession` and `bestBidOffer`. Every view has:
+
+| Member | |
+|---|---|
+| its fields | Prices in the instrument's own notation, quantities with thousands separators, `""` for `null`. |
+| `decimal` | The same fields, with prices in decimal notation. |
+| `values` | Every field as a plain object, for spreading: `{ ...formatted.session.values }`. |
+
+Fields are formatted when read. `JSON.stringify(formatted)` gives every view's values.
+
+### `Instrument`
+
+| Member | |
+|---|---|
+| `symbol` | The symbol you subscribed with, as the event's `symbol`, or the one you passed to `getInstrument`: for `ES*1`, it's `ES*1`. The definition's own `symbol` can be the exchange's (`ESZ6`). |
+| `marketId`, `description`, `instrumentType`, `exchangeCode`, `timeZoneName`, `bookDepth`, `minimumPriceIncrement` | From the instrument definition. |
+| `priceFormat` | The `PriceFormat` its prices are written in. |
+| `definition` | The whole `InstrumentDefinition`. |
+| `price(raw)`, `quantity(raw)` | A protocol price or quantity, scaled; for values read from raw messages. |
+| `formatPrice(price, notation?)` | A price as a string; `notation` is `"native"` (the default) or `"decimal"`. In 32nds, `112.5` is `"112-16"`, or `"112.50000"` in decimal. `""` for `null`. |
+| `parsePrice(text)` | A price string back to a number. A fraction with a subdenominator ends in its sub-fraction's first decimal digit, as `formatPrice` writes it: in quarter 32nds, `"104-002"` is 104 and ¼ of a 32nd, so formatted prices parse back exactly. A digit `formatPrice` never writes reads as tenths. |
+
+### Others
+
+| Type | |
+|---|---|
+| `Book` | `{ bids: PriceLevel[], asks: PriceLevel[] }`, each side `bookDepth` long. A level outside it, in a snapshot or an update, is skipped and logged as an error. |
+| `PriceLevel` | `{ price, size, orderCount? }`; an empty slot is `{ price: 0, size: 0 }`. |
+| `PriceVolume` | `{ price, volume }` |
+| `TradeDate` | A date without a time: `year`, `month` (1–12), `day`, `equals()`, `toString()` as `"YYYY-MM-DD"`. |
+| `PriceFormat` | `{ priceScaling, numDecimals?, fraction?: { denominator, subdenominator } }` |
+| `Credentials` | `{ url, username, password }` |
+| `SdkLogger` | `{ log, warn, error }` |
 
 ## 8. Delivery guarantees
 
