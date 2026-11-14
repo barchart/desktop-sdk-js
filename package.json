@@ -50,11 +50,12 @@
         "lint": "eslint .",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
+        "docs:api": "typedoc",
         "test": "vitest run",
         "test:watch": "vitest",
         "check:package": "publint && attw --pack . --profile esm-only",
         "check:esm": "node --input-type=module -e \"const sdk = await import('@barchart/desktop-sdk-js'); if (typeof sdk.DesktopSdk !== 'function') process.exit(1)\"",
-        "check": "yarn typecheck && yarn lint && yarn format:check && yarn test && yarn build && yarn check:package && yarn check:esm"
+        "check": "yarn typecheck && yarn lint && yarn format:check && yarn test && yarn docs:api && yarn build && yarn check:package && yarn check:esm"
     },
     "peerDependencies": {
         "@openfeed/sdk-js": "^1.8.1",
@@ -74,6 +75,8 @@
         "prettier": "3.9.10",
         "publint": "0.3.25",
         "tsc-alias": "1.9.9",
+        "typedoc": "0.28.20",
+        "typedoc-plugin-markdown": "4.14.1",
         "typescript": "6.0.3",
         "typescript-7": "npm:typescript@7.0.2",
         "typescript-eslint": "8.72.1",

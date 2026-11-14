@@ -4,56 +4,92 @@ import type { Instrument } from "../instrument";
 import { TradeDate } from "../trade-date";
 
 /**
- * One trading session, as the protocol's MarketSession: what the feed sent, scaled, with no fallbacks between fields.
- * …Time ← transactionTime, always a Date (JavaScript's built-in: an instant, ms since the Unix epoch, UTC).
- * …TradeDate ← tradeDate, always a TradeDate. Choosing between the two is the consumer's business.
- * Both sessions have every field; a field the protocol doesn't send for a session stays null (the previous
- * session's `close`, say).
+ * One trading session, as Openfeed sends it: prices and quantities as numbers, with no fallbacks between fields. A
+ * field the feed hasn't sent is `null`; some are never sent for a session, such as the previous session's `close`.
+ *
+ * Prices with a time have two stamps: `…Time`, when it happened, as a `Date`; and `…TradeDate`, the session it
+ * belongs to, as a {@link TradeDate}. Which one to show is up to the application.
  */
 export interface SessionRecord {
+    /** The session's date. */
     readonly tradeDate: TradeDate | null;
 
+    /** The session's opening price. */
     readonly open: number | null;
+    /** The session's highest price so far. */
     readonly high: number | null;
+    /** The session's lowest price so far. */
     readonly low: number | null;
 
+    /** The session's closing price. */
     readonly close: number | null;
+    /** When the close was set. */
     readonly closeTime: Date | null;
+    /** The session the close belongs to. */
     readonly closeTradeDate: TradeDate | null;
 
+    /** The session's settlement price. */
     readonly settle: number | null;
+    /** When the settlement was set. */
     readonly settleTime: Date | null;
+    /** The session the settlement belongs to. */
     readonly settleTradeDate: TradeDate | null;
+    /** Whether the settlement is preliminary, rather than final. */
     readonly settlePreliminary: boolean | null;
 
+    /**
+     * The previous session's settlement price, as the last snapshot sent it with this session. Updates change
+     * `previousSession.settle` instead, so read that one for the latest value.
+     */
     readonly prevSettle: number | null;
+    /** When the previous session's settlement was set. */
     readonly prevSettleTime: Date | null;
+    /** The session the previous settlement belongs to. */
     readonly prevSettleTradeDate: TradeDate | null;
 
+    /** The last price. */
     readonly last: number | null;
+    /** When the last price was set. */
     readonly lastTime: Date | null;
+    /** The session the last price belongs to. */
     readonly lastTradeDate: TradeDate | null;
+    /** The quantity traded at the last price. */
     readonly lastSize: number | null;
+    /** The price of Openfeed's `lastTrade`, which has no time or date of its own here. */
     readonly lastTrade: number | null;
 
+    /** The quantity traded in the session so far. */
     readonly volume: number | null;
+    /** The number of open contracts. */
     readonly openInterest: number | null;
+    /** How many trades the session has had so far. */
     readonly numberOfTrades: number | null;
 }
 
-/** The best bid and offer, as the protocol's BestBidOffer. In an update a missing side arrives as zeros (no bid). */
+/**
+ * The best bid and offer: the highest price a buyer is offering and the lowest a seller will take. When one side is
+ * empty, an update sets its fields to 0.
+ */
 export interface BestBidOfferRecord {
+    /** The highest bid. */
     readonly bidPrice: number | null;
+    /** The quantity bid at `bidPrice`. */
     readonly bidSize: number | null;
+    /** How many orders make up `bidSize`, when the feed sends it. */
     readonly bidOrderCount: number | null;
+    /** The lowest offer. */
     readonly askPrice: number | null;
+    /** The quantity offered at `askPrice`. */
     readonly askSize: number | null;
+    /** How many orders make up `askSize`, when the feed sends it. */
     readonly askOrderCount: number | null;
 }
 
-/** The instrument's trading status, as the protocol's InstrumentStatus. */
+/** The instrument's trading status, as Openfeed's `InstrumentStatus` sends it. */
 export interface StatusRecord {
+    /** The current status, such as open or halted. */
     readonly trading: InstrumentTradingStatus | null;
+    /** The status before it. */
     readonly prior: InstrumentTradingStatus | null;
     /** The status's session date; a snapshot without a status gives its own trade date. */
     readonly tradeDate: TradeDate | null;
@@ -67,9 +103,13 @@ export interface StatusRecord {
  * as before.
  */
 export interface QuoteRecord {
+    /** The current session. */
     readonly session: SessionRecord;
+    /** The session before it; every field `null` until the feed sends it. */
     readonly previousSession: SessionRecord;
+    /** The best bid and offer. */
     readonly bestBidOffer: BestBidOfferRecord;
+    /** The trading status. */
     readonly status: StatusRecord;
 }
 

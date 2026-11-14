@@ -1,6 +1,6 @@
 # Reference
 
-The SDK's public methods, and the shapes of what they return. The [README](../README.md) is the introduction, and the [design](design.md) explains how the SDK works inside.
+The SDK's public methods, how they behave, and the delivery guarantees. Every type, field and parameter is described on hover in your editor, and in the API reference generated from the code, which the npm package ships in `docs/api/`. The [README](../README.md) is the introduction, and the [design](design.md) explains how the SDK works inside.
 
 Protocol names (services, subscription types, results, messages such as `OpenfeedGatewayMessage`) are Openfeed's. For what they mean and how the feed behaves, see the Openfeed documentation:
 
@@ -99,6 +99,8 @@ The current state for a symbol, as the last event delivered it; `undefined` unti
 
 ## 7. Types
 
+The main types, in short. Every field's description is in your editor on hover, and the full API reference, generated from the code, is in the installed package: `node_modules/@barchart/desktop-sdk-js/docs/api/README.md`.
+
 ### Events
 
 Every event has:
@@ -106,7 +108,7 @@ Every event has:
 | Field | |
 |---|---|
 | `symbol` | The symbol subscribed to; an alias stays the alias. |
-| `instrument` | The `Instrument`. |
+| `instrument` | The `Instrument`; its `symbol` is the same name, and the contract's own is `instrument.definition.symbol`. |
 | `kind` | `initial` (the state delivered to a new subscriber), `snapshot` or `update` (a message was just applied). |
 | `raw` | The `OpenfeedGatewayMessage` behind it; for `initial`, the instrument's last snapshot. |
 
